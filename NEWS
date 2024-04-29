@@ -1,0 +1,42 @@
+Version 1.0.5
+=============
+-Fix a bug
+-Update DESCRIPTION
+-Update README.md
+
+
+
+Version 1.0.4
+=============
+-Update PlotPathNet () function
+-Update README.md
+
+Version 1.0.3
+=============
+
+- Fix a bug
+
+
+
+Version 1.0.2
+=============
+
+- Replace the name of function VisMulti () with VisMultiModule ()
+- Added PlotPathFearture () function
+- Added PlotPathInner () function
+- Added PlotPathNet () function
+- Added PlotCorModule () function
+
+
+Version 1.0.1
+=============
+
+- Optimized the VisMulti() function
+- Added table visualization
+
+
+
+Version 1.0
+============
+- initial version
+
