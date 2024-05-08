@@ -38,8 +38,10 @@ install.packages('BioM2')
 ```
 The latest release can be installed using the code provided below.
 ```
+
 install.packages("devtools")
-devtools::install_github("jkkomm/BioM2")
+library(devtools)
+install_github("jkkomm/BioM2")
 ```
 BioM2 is built on the mlr3 package. To use additional learners, please install the mlr3extralearners package.
 ```
