@@ -182,7 +182,7 @@ $ GO:0000023: chr [1:3] "2548" "2595" "8972"
   ```
 
 
-## Prediction
+## Phenotype prediction
 To predict the phenotype, follow these steps.
 ```
 library(mlr3verse)
@@ -190,12 +190,17 @@ library(caret)
 library(parallel)
 library(BioM2)
 
-result=BioM2 ( TrainData = data , TestData = NULL ,       ## If you only have one dataset
-                pathlistDB = pathlistDB ,                         ## ==>> [Pathway annotation data]
-                FeatureAnno = FeatureAnno ,                       ## ==>> [Feature annotation data]
-                classifier = 'liblinear' , nfolds = 5 ,           ## Choose your learner( use "lrns()" ) , currently only cross-validation is supported
-                Inner_CV = FALSE , inner_folds=10 ,               ## Whether to use nested resampling 
-                cores = 5                                         ## Parallel support
+result=BioM2 (  TrainData = data , TestData = NULL ,                               ## If you only have one dataset
+                pathlistDB = pathlistDB ,                                          ## ==>> [Pathway annotation data]
+                FeatureAnno = FeatureAnno ,                                        ## ==>> [Feature annotation data]
+                classifier = 'liblinear' , nfolds = 5 ,                            ## Choose your learner( use "lrns()" ) , currently only cross-validation is supported
+                Inner_CV = FALSE , inner_folds=10 ,                                ## Whether to use nested resampling
+                Stage1_FeartureSelection_Method = "cor", cutoff=0,                 ## Stage-1 feature selection method and cutoff
+                Stage2_FeartureSelection_Method = "RemoveHighcor",cutoff2 = 0.80,  ## Stage-2 feature selection method and cutoff
+                Add_FeartureSelection_Method = "wilcox.test", Unmapped_num = 0,    ## Unmapped feature selection method and cutoff
+                classifier2=NULL,                                                  ## Learner for stage 2 prediction(if classifier2==NULL,then it is the same as the learner in stage 1.)
+                target='predict',                                                  ## Phenotype prediction
+                cores = 5                                                          ## Parallel support
 )
 ...(More Detail)
 
@@ -301,14 +306,19 @@ library(caret)
 library(parallel)
 library(BioM2)
 
-result=BioM2 ( TrainData = data , TestData = NULL ,              
-                pathlistDB = pathlistDB ,                         
-                FeatureAnno = FeatureAnno ,                       
-                classifier = 'liblinear' , nfolds = 5 ,          
-                target='pathways',                           ##==>>  [ target = 'pathways']
-                cores = 5                                        
-)
 
+result=BioM2 (  TrainData = data , TestData = NULL ,                               
+                pathlistDB = pathlistDB ,                                          
+                FeatureAnno = FeatureAnno ,                                        
+                classifier = 'liblinear' , nfolds = 5 ,                            
+                Inner_CV = FALSE , inner_folds=10 ,                                
+                Stage1_FeartureSelection_Method = "cor", cutoff=0,                 
+                Stage2_FeartureSelection_Method = "RemoveHighcor",cutoff2 = 0.80,  
+                Add_FeartureSelection_Method = "wilcox.test", Unmapped_num = 0,    
+                classifier2=NULL,                                                  
+                target='predict',                                                  ##==>>  [ target = 'pathways']
+                cores = 5                                                          
+)
 Matrix=result$PathwaysMatrix
 
 library(WGCNA)
