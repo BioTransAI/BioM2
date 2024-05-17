@@ -295,7 +295,7 @@ $ PathwaysResult:'data.frame':	2973 obs. of  5 variables:
 
 ```
 
-## Pathways Module
+## Pathway Modules
 
 A pathway matrix can be obtained by using BioM2(, target = 'pathways'). The WGCNA method aggregates pathways with similar expression patterns into a module, and uses biological semantic information to assist in screening modules with high biological interpretability, and compares these biological pathway modules association with phenotype.
 
@@ -400,7 +400,7 @@ $ ME34:'data.frame':	8 obs. of  4 variables:
 ## Visualization
 - PlotPathFearture() : Visualisation of significant pathway-level features
 - PlotPathInner() : Visualisation Original features that make up the pathway
-- PlotPathNet() : Network diagram of pathways-level features
+- PlotPathNet() : Network diagram of pathway-level features
 - VisMultiModule() : Visualisation of the results of the analysis of the pathway modules
 - PlotCorModule() : Correlalogram for Illness-relevant Modules
 
@@ -447,7 +447,7 @@ PlotPathInner(data=TrainData,pathlistDB=pathlistDB,FeatureAnno=FeatureAnno,
 
 
 ### PlotPathNet ()
-**Network diagram of pathways-level features**
+**Network diagram of pathway-level features**
 ```
 #Load the required R packages
 library(igraph)
