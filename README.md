@@ -254,12 +254,17 @@ library(caret)
 library(parallel)
 library(BioM2)
 
-result=BioM2 ( TrainData = data , TestData = NULL ,              
-                pathlistDB = pathlistDB ,                         
-                FeatureAnno = FeatureAnno ,                       
-                classifier = 'liblinear' , nfolds = 5 ,          
-                target='pathways',                           ##==>>  [ target = 'pathways']
-                cores = 5                                        
+result=BioM2 (  TrainData = data , TestData = NULL ,                               
+                pathlistDB = pathlistDB ,                                          
+                FeatureAnno = FeatureAnno ,                                        
+                classifier = 'liblinear' , nfolds = 5 ,                            
+                Inner_CV = FALSE , inner_folds=10 ,                                
+                Stage1_FeartureSelection_Method = "cor", cutoff=0,                 
+                Stage2_FeartureSelection_Method = "RemoveHighcor",cutoff2 = 0.80,  
+                Add_FeartureSelection_Method = "wilcox.test", Unmapped_num = 0,    
+                classifier2=NULL,                                                  
+                target='predict',                                                  ##==>>  [ target = 'pathways']
+                cores = 5                                                          
 )
 
 [1] "-----------------------------------------------------------"
