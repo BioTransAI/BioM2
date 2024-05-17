@@ -514,7 +514,7 @@ Para=FindParaModule(pathways_matrix = Matrix, minModuleSize = c(6,7,8), mergeCut
 VisMultiModule(FindParaModule_obj=Para)
 
 ```
-![FindParaModule](https://github.com/jkkomm/img/blob/main/FindPara.png)
+![FindParaModule](https://github.com/jkkomm/img/blob/main/Figure%205a(1).jpg)
 
 
 
@@ -526,7 +526,7 @@ Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSi
 
 VisMultiModule(PathwaysModule_obj=Modules)
 ```
-![DE_PathwaysModule](https://github.com/jkkomm/img/blob/main/UMAP.png)
+![DE_PathwaysModule](https://github.com/jkkomm/img/blob/main/Figure%205b(1).jpg)
 
 Violin plot showing statistics for the pathway modules
 ```
@@ -535,7 +535,7 @@ Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSi
 
 VisMultiModule(PathwaysModule_obj=Modules,volin=TURE,control_label=0,module=c(14,15,28,4)))
 ```
-![Violin](https://github.com/jkkomm/img/blob/main/boxplot.png)
+![Violin](https://github.com/jkkomm/img/blob/main/Figure%208a(1).jpg)
 
 **VisMultiModule ( , ShowModule_obj )  ：**
 Summarize the biological information of the pathways in the module with a wordcloud.
