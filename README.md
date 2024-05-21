@@ -614,7 +614,7 @@ image_ggplot(gg[[1]])+labs(title = ff2[1])+
 Matrix=result$PathwaysMatrix
 Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSize = 6, mergeCutHeight = 0.3, cutoff = 70)
 
-PlotCorModule=(PathwaysModule_obj=Modules)
+PlotCorModule(PathwaysModule_obj=Modules)
 
 ```
 ![Cor](https://github.com/jkkomm/img/blob/main/Figure%206a(1).jpg)
