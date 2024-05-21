@@ -538,7 +538,17 @@ Violin plot showing statistics for the pathway modules
 Matrix=result$PathwaysMatrix
 Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSize = 6, mergeCutHeight = 0.3, cutoff = 70)
 
-VisMultiModule(PathwaysModule_obj=Modules,volin=TURE,control_label=0,module=c(14,15,28,4)))
+img=list()
+modules=c(14,15,28,4)
+for(i in 1:length(xxx)){
+  pic=VisMultiModule(PathwaysModule_obj=Modules,volin=TRUE,control_label=0,module=modules[i])
+  img[[i]]=pic
+}
+d=1
+img[[1]]+theme(plot.margin = unit(c(d,d,d,d), "cm"))+
+  img[[2]]+theme(plot.margin = unit(c(d,d,d,d), "cm"))+
+  img[[3]]+theme(plot.margin = unit(c(d,d,d,d), "cm"))+
+  img[[4]]+theme(plot.margin = unit(c(d,d,d,d), "cm"))
 ```
 ![Violin](https://github.com/jkkomm/img/blob/main/Figure%208a(1).jpg)
 
@@ -548,9 +558,52 @@ Summarize the biological information of the pathways in the module with a wordcl
 Matrix=result$PathwaysMatrix
 Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSize = 6, mergeCutHeight = 0.3, cutoff = 70)
 
-ModulesInner = ShowModule(Modules,c(14,15,28,4))
 
-VisMultiModule(ShowModule_obj=ModulesInner)
+modules=c(14,15,28,4)
+output=paste0('Module',modules,'_WordCloud.png')
+for(i in 1:length(modules)){
+  ModulesInner = ShowModule(Modules,modules[i])
+  my_graph=VisMultiModule(ShowModule_obj=ModulesInner)
+  saveWidget(my_graph,'tmp.html',selfcontained = F)
+  webshot('tmp.html',output[i])
+}
+library(magick)
+ff=list.files(pattern = 'png')
+gg=do.call(cbind,lapply(1:4,function(x) image_read(ff[x])))
+library(patchwork)
+library(ggthemes)
+ff2=gsub('_WordCloud.png','',ff)
+ff2=gsub('ME','Module',ff2)
+ba='#FFFFFF'
+d=2
+image_ggplot(gg[[1]])+labs(title = ff2[1])+
+  theme(text = element_text(family = "serif", size = 10, color = "black",face='bold'),
+        panel.border = element_rect(color = "black", fill = NA, size = 2),
+        plot.margin = unit(c(d, d, d, d), "mm"),
+        panel.background = element_rect(fill = ba, color = ba),
+        plot.background = element_rect(fill = ba, color = ba))+
+  image_ggplot(gg[[2]])+labs(title = ff2[2])+
+  theme(text = element_text(family = "serif", size = 10, color = "black",face='bold'),
+        panel.border = element_rect(color = "black", fill = NA, size = 2),
+        plot.margin = unit(c(d, d, d, d), "mm"),
+        panel.background = element_rect(fill = ba, color = ba),
+        plot.background = element_rect(fill = ba, color = ba))+
+  image_ggplot(gg[[3]])+labs(title = ff2[3])+
+  theme(text = element_text(family = "serif", size = 10, color = "black",face='bold'),
+        panel.border = element_rect(color = "black", fill = NA, size = 2),
+        plot.margin = unit(c(d, d, d, d), "mm"),
+        panel.background = element_rect(fill = ba, color = ba),
+        plot.background = element_rect(fill = ba, color = ba))+
+  image_ggplot(gg[[4]])+labs(title = ff2[4])+
+  theme(text = element_text(family = "serif", size = 10, color = "black",face='bold'),
+        panel.border = element_rect(color = "black", fill = NA, size = 2),
+        plot.margin = unit(c(d, d, d, d), "mm"),
+        panel.background = element_rect(fill = ba, color = ba),
+        plot.background = element_rect(fill = ba, color = ba))
+
+
+
+
 
 ```
 ![SM25](https://github.com/jkkomm/img/blob/main/WordCloud.png)
