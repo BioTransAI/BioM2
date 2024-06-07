@@ -181,7 +181,6 @@ $ GO:0000023: chr [1:3] "2548" "2595" "8972"
   
   ```
 
-
 ## Phenotype prediction
 To predict the phenotype, follow these steps.
 ```
@@ -242,6 +241,47 @@ $ Metric     :'data.frame':	5 obs. of  5 variables:
 ..$ PCCs         : num [1:5] 0.830 0.711 0.730 0.910 0.741
 $ TotalMetric: Named num [1:3] 0.953 0.876 0.785
 ..- attr(*, "names")= chr [1:3] "AUC" "ACC" "PCCs"
+
+```
+
+## Selection of basemodel
+The selection of an appropriate base model for enhanced prediction via the HybaseModel() function.
+```
+#It is recommended that the base models to be tested be established.
+basemodels=c('liblinear','svm','ranger','gbm','kknn')
+
+re=HybaseModel(data=TrainData[1:80,1:200000],pathlistDB=pathlistDB,FeatureAnno=FeatureAnno,resampling=NULL,nfolds=5,classifiers=basemodels,
+            PathwaySizeUp=200,PathwaySizeDown=150,MinfeatureNum_pathways=10,
+            Add_UnMapped=F,Unmapped_num=300,Add_FeartureSelection_Method='wilcox.test',
+            Inner_CV=F,inner_folds=10,
+            Stage1_FeartureSelection_Method='cor',cutoff=0.5,
+            Stage2_FeartureSelection_Method='RemoveHighcor',cutoff2=0.9,
+            cores=10,verbose=TRUE)
+
+
+[1] "===================HybaseModel=================="
+[1] "<<<<<----- liblinear ----->>>>>"
+[1] "{|>>>=====Learner: liblinear---Performance Metric---==>>AUC:0.716 ACC:0.662 PCCs:0.365======<<<|}"
+Time difference of 1.047396 mins
+[1] "                       "
+[1] "<<<<<----- svm ----->>>>>"
+[1] "{|>>>=====Learner: svm---Performance Metric---==>>AUC:0.772 ACC:0.662 PCCs:0.443======<<<|}"
+Time difference of 2.195223 mins
+[1] "                       "
+[1] "<<<<<----- ranger ----->>>>>"
+[1] "{|>>>=====Learner: ranger---Performance Metric---==>>AUC:0.727 ACC:0.647 PCCs:0.397======<<<|}"
+Time difference of 3.409853 mins
+[1] "                       "
+[1] "<<<<<----- gbm ----->>>>>"
+[1] "{|>>>=====Learner: gbm---Performance Metric---==>>AUC:0.629 ACC:0.61 PCCs:0.241======<<<|}"
+Time difference of 4.466421 mins
+[1] "                       "
+[1] "<<<<<----- kknn ----->>>>>"
+[1] "{|>>>=====Learner: kknn---Performance Metric---==>>AUC:0.723 ACC:0.691 PCCs:0.42======<<<|}"
+Time difference of 5.545631 mins
+[1] "                       "
+[1] "Best baseModel: svm"
+
 
 ```
 ##  Biological interpretability
