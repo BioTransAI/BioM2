@@ -41,7 +41,7 @@ The latest release can be installed using the code provided below.
 
 install.packages("devtools")
 library(devtools)
-install_github("jkkomm/BioM2")
+install_github("BioTransAI/BioM2")
 ```
 BioM2 is built on the mlr3 package. To use additional learners, please install the mlr3extralearners package.
 ```
