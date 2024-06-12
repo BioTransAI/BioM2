@@ -230,43 +230,55 @@ $ TotalMetric: Named num [1:3] 0.953 0.876 0.785
 
 ```
 
-## Selection of basemodel
-The selection of an appropriate base model for enhanced prediction via the HybaseModel() function.
+## Parameters optimization
+Hyperparameter selection for BioM2 using HyBioM2() to improve prediction performance
 ```
-#It is recommended that the base models to be tested be established.
-basemodels=c('liblinear','svm','ranger','gbm','kknn')
+library(mlr3verse)
+library(parallel)
+library(caret)
+library(BioM2)
 
-re=HybaseModel(data=TrainData[1:80,1:200000],pathlistDB=pathlistDB,FeatureAnno=FeatureAnno,resampling=NULL,nfolds=5,classifiers=basemodels,
-            PathwaySizeUp=200,PathwaySizeDown=150,MinfeatureNum_pathways=10,
-            Add_UnMapped=F,Unmapped_num=300,Add_FeartureSelection_Method='wilcox.test',
-            Inner_CV=F,inner_folds=10,
-            Stage1_FeartureSelection_Method='cor',cutoff=0.5,
-            Stage2_FeartureSelection_Method='RemoveHighcor',cutoff2=0.9,
-            cores=10,verbose=TRUE)
+#Selection of stage-1 basemodels
+classifier1=c('liblinear','svm')
 
 
-[1] "===================HybaseModel=================="
-[1] "<<<<<----- liblinear ----->>>>>"
-[1] "{|>>>=====Learner: liblinear---Performance Metric---==>>AUC:0.716 ACC:0.662 PCCs:0.365======<<<|}"
-Time difference of 1.047396 mins
-[1] "                       "
-[1] "<<<<<----- svm ----->>>>>"
-[1] "{|>>>=====Learner: svm---Performance Metric---==>>AUC:0.772 ACC:0.662 PCCs:0.443======<<<|}"
-Time difference of 2.195223 mins
-[1] "                       "
-[1] "<<<<<----- ranger ----->>>>>"
-[1] "{|>>>=====Learner: ranger---Performance Metric---==>>AUC:0.727 ACC:0.647 PCCs:0.397======<<<|}"
-Time difference of 3.409853 mins
-[1] "                       "
-[1] "<<<<<----- gbm ----->>>>>"
-[1] "{|>>>=====Learner: gbm---Performance Metric---==>>AUC:0.629 ACC:0.61 PCCs:0.241======<<<|}"
-Time difference of 4.466421 mins
-[1] "                       "
-[1] "<<<<<----- kknn ----->>>>>"
-[1] "{|>>>=====Learner: kknn---Performance Metric---==>>AUC:0.723 ACC:0.691 PCCs:0.42======<<<|}"
-Time difference of 5.545631 mins
-[1] "                       "
-[1] "Best baseModel: svm"
+#stage-1 feature_selection
+stage1_cutoff=c(0.3,0.5)
+
+
+#Number of unmapped features
+Unmapped_num=c(5,10)
+
+Step2_FeartureSelection_Method='wilcox.test'
+
+#stage-2 feature_selection
+stage2_cutoff=c(0.9,0.8)
+
+#Selection of stage-2 basemodels(The default is the same as the stage-1)
+classifier2=NULL
+
+#A data frame contains hyperparameter results
+result=HyBioM2(TrainData=TrainData,pathlistDB=pathlistDB,FeatureAnno=FeatureAnno,resampling=NULL,nfolds=2,classifier=classifier1,
+           PathwaySizeUp=200,PathwaySizeDown=150,MinfeatureNum_pathways=10,
+           Add_FeartureSelection_Method='wilcox.test',Unmapped_num=Unmapped_num,
+           Inner_CV=F,inner_folds=10,
+           Stage1_FeartureSelection_Method='cor',stage1_cutoff=stage1_cutoff,
+           Stage2_FeartureSelection_Method='RemoveHighcor',stage2_cutoff=stage2_cutoff,
+           classifier2=NULL,cores=20,verbose=TRUE)
+
+
+#View the optimal hyperparameter combination
+head(result[order(result$AUC,decreasing = T),c(1,3:6,8)])
+
+#   stage1_learner stage1_cutoff stage2_cutoff Unmapped_num       AUC       PCC
+#15            svm         0.001            10            5 0.7373737 0.4020263
+#2       liblinear         0.010             5           10 0.7171717 0.3806561
+#4       liblinear         0.010            10           10 0.7171717 0.3815476
+#6       liblinear         0.001             5           10 0.7171717 0.3798767
+#8       liblinear         0.001            10           10 0.7171717 0.3809311
+#16            svm         0.001            10           10 0.7121212 0.4094221
+
+
 
 
 ```
