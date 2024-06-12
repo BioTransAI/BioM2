@@ -163,7 +163,7 @@ $ TotalMetric: Named num [1:3] 0.953 0.876 0.785
 
 ```
 
-## Parameters optimization
+## Hyparameters optimization
 Hyperparameter selection for BioM2 using HyBioM2() to improve prediction performance
 ```
 library(mlr3verse)
@@ -171,11 +171,11 @@ library(parallel)
 library(caret)
 library(BioM2)
 
-#Selection of stage-1 basemodels
-classifier1=c('liblinear','svm')
+# Selection of stage-1 basemodels
+classifier1=c('liblinear','svm','ranger')
 
 
-#stage-1 feature_selection
+# Stage-1 feature_selection
 stage1_cutoff=c(0.3,0.5)
 
 
@@ -183,13 +183,13 @@ stage1_cutoff=c(0.3,0.5)
 Unmapped_num=c(5,10)
 
 
-#stage-2 feature_selection
-stage2_cutoff=c(0.9,0.8)
+# Stage-2 feature_selection
+stage2_cutoff=c(0.8,1.0)
 
-#Selection of stage-2 basemodels(The default is the same as the stage-1)
+# Selection of stage-2 basemodels(The default is the same as the stage-1)
 classifier2=NULL
 
-#A data frame contains hyperparameter results
+# A data frame contains hyperparameter results
 result=HyBioM2(TrainData=TrainData,pathlistDB=pathlistDB,FeatureAnno=FeatureAnno,resampling=NULL,nfolds=2,classifier=classifier1,
            PathwaySizeUp=200,PathwaySizeDown=150,MinfeatureNum_pathways=10,
            Add_FeartureSelection_Method='wilcox.test',Unmapped_num=Unmapped_num,
@@ -199,7 +199,7 @@ result=HyBioM2(TrainData=TrainData,pathlistDB=pathlistDB,FeatureAnno=FeatureAnno
            classifier2=NULL,cores=20,verbose=TRUE)
 
 
-#View the optimal hyperparameter combination
+# View the optimal hyperparameter combination
 head(result[order(result$AUC,decreasing = T),c(1,3:6,8)])
 
 #   stage1_learner stage1_cutoff stage2_cutoff Unmapped_num       AUC       PCC
