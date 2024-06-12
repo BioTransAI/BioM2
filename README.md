@@ -202,13 +202,14 @@ result=HyBioM2(TrainData=TrainData,pathlistDB=pathlistDB,FeatureAnno=FeatureAnno
 # View the optimal hyperparameter combination
 head(result[order(result$AUC,decreasing = T),c(1,3:6,8)])
 
-#   stage1_learner stage1_cutoff stage2_cutoff Unmapped_num       AUC       PCC
-#15            svm         0.001            10            5 0.7373737 0.4020263
-#2       liblinear         0.010             5           10 0.7171717 0.3806561
-#4       liblinear         0.010            10           10 0.7171717 0.3815476
-#6       liblinear         0.001             5           10 0.7171717 0.3798767
-#8       liblinear         0.001            10           10 0.7171717 0.3809311
-#16            svm         0.001            10           10 0.7121212 0.4094221
+#  stage1_learner stage1_cutoff stage2_cutoff Unmapped_num        AUC         PCC
+#         ranger           0.5             1             5  0.8243945   0.5422997
+#         ranger           0.3             1             5  0.8192042   0.5445359
+#            svm           0.3             1             5  0.8066609   0.5313999
+#            svm           0.3             1            10  0.8066609   0.5327538
+#            svm           0.5             1            10  0.8066609   0.5285186
+#            svm           0.5             1             5  0.8053633   0.5269829
+
 
 
 
