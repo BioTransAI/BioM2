@@ -363,7 +363,8 @@ Matrix=result$PathwaysMatrix
 
 library(WGCNA)
 
-Para=FindParaModule(pathways_matrix = Matrix, control_label=0,minModuleSize =seq(5,20,5), mergeCutHeight=seq(0.1,0.4,0.1),power=NULL)
+Para=FindParaModule(pathways_matrix = Matrix, control_label=0,minModuleSize =seq(5,20,5),
+                     mergeCutHeight=seq(0.1,0.4,0.05),power=NULL)
 
 > str(Para)
 List of 2
@@ -384,7 +385,8 @@ The modules relevant to the illness can then be obtained, with high biological i
 ```
 library(WGCNA)
 
-Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSize = 10, mergeCutHeight = 0.4, cutoff = 70,power=NULL)
+Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSize = 10, mergeCutHeight = 0.4,
+                        cutoff = 70,p.adjust.method='none',power=NULL)
 
 > str(Modules)
 List of 4
@@ -526,7 +528,8 @@ VisMultiModule(BioM2_pathways_obj = result)
 Visualize the process of selecting optimal parameters based on biological terms.
 ```
 Matrix=result$PathwaysMatrix
-Para=FindParaModule(pathways_matrix = Matrix, minModuleSize = c(6,7,8), mergeCutHeight=c(0.2,0.25,0.3,0.35,0.4,0.45,0.5),power=NULL)
+Para=FindParaModule(pathways_matrix = Matrix, , control_label = 0,minModuleSize = c(6,7,8),
+                                                 mergeCutHeight=seq(0.2,0.5,0.05),power=NULL)
 
 VisMultiModule(FindParaModule_obj=Para)
 
@@ -539,7 +542,8 @@ VisMultiModule(FindParaModule_obj=Para)
 Each point represents a path, and points of the same color belong to the same illness-relevant module
 ```
 Matrix=result$PathwaysMatrix
-Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSize = 6, mergeCutHeight = 0.3, cutoff = 70,power=NULL)
+Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSize = 6, mergeCutHeight = 0.3,
+                         cutoff = 70,p.adjust.method='none',power=NULL)
 
 VisMultiModule(PathwaysModule_obj=Modules)
 ```
