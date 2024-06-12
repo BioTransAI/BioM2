@@ -249,7 +249,6 @@ stage1_cutoff=c(0.3,0.5)
 #Number of unmapped features
 Unmapped_num=c(5,10)
 
-Step2_FeartureSelection_Method='wilcox.test'
 
 #stage-2 feature_selection
 stage2_cutoff=c(0.9,0.8)
