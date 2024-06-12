@@ -863,11 +863,15 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
         colnames(newtest)=gsub(':','',colnames(newtest))
         colnames(newtrain)=gsub(':','',colnames(newtrain))
         if(Add_UnMapped==TRUE){
-          Unmapped_Data=AddUnmapped(train=trainData,test=testData,Add_FeartureSelection_Method=Add_FeartureSelection_Method,
-                                    Unmapped_num=Unmapped_num,len=ncol(newtrain),anno=featureAnno,verbose=verbose,cores=cores)
-          newtrain=cbind(newtrain,Unmapped_Data$train)
-          newtest=cbind(newtest,Unmapped_Data$test)
-          if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
+          if(Unmapped_num==0){
+            if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
+          }else{
+            Unmapped_Data=AddUnmapped(train=trainData,test=testData,Add_FeartureSelection_Method=Add_FeartureSelection_Method,
+                                      Unmapped_num=Unmapped_num,len=ncol(newtrain),anno=featureAnno,verbose=verbose,cores=cores)
+            newtrain=cbind(newtrain,Unmapped_Data$train)
+            newtest=cbind(newtest,Unmapped_Data$test)
+            if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
+          }
         }
 
         #(Predict and Metric)
@@ -886,10 +890,10 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
         Record[xxx,2]=classifier2
         Record[xxx,5]=stats::cor(testDataY,result,method='pearson')
         Record[xxx,3]=ROCR::performance(ROCR::prediction(result,testDataY),'auc')@y.values[[1]]
-        testDataY=as.factor(testDataY)
-        pre=as.factor(pre)
-        Record[xxx,4]=confusionMatrix(pre, testDataY)$overall['Accuracy'][[1]]
-        if(verbose)print(paste0('######Resampling NO.',xxx,'~~~~',classifier2,'==>','AUC:',round(Record[xxx,3],digits = 3),' ','ACC:',round(Record[xxx,4],digits = 3),' ','PCCs:',round(Record[xxx,5],digits = 3)))
+        accuracy_class1 <- sum(pre[testDataY == 1] == 1) / sum(testDataY == 1)
+        accuracy_class0 <- sum(pre[testDataY == 0] == 0) / sum(testDataY == 0)
+        Record[xxx,4]=(accuracy_class1 + accuracy_class0) / 2
+        if(verbose)print(paste0('######Resampling NO.',xxx,'~~~~',classifier2,'==>','AUC:',round(Record[xxx,3],digits = 3),' ','BAC:',round(Record[xxx,4],digits = 3),' ','PCCs:',round(Record[xxx,5],digits = 3)))
         t2=Sys.time()
         if(verbose)print(t2-t1)
         if(verbose)print('---------------------####################------------------')
@@ -1049,11 +1053,15 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
       colnames(newtest)=gsub(':','',colnames(newtest))
       colnames(newtrain)=gsub(':','',colnames(newtrain))
       if(Add_UnMapped==TRUE){
-        Unmapped_Data=AddUnmapped(train=trainData,test=testData,,Add_FeartureSelection_Method=Add_FeartureSelection_Method,
-                                  Unmapped_num=Unmapped_num,anno=featureAnno,verbose=verbose,cores=cores)
-        newtrain=cbind(newtrain,Unmapped_Data$train)
-        newtest=cbind(newtest,Unmapped_Data$test)
-        if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
+        if(Unmapped_num==0){
+          if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
+        }else{
+          Unmapped_Data=AddUnmapped(train=trainData,test=testData,Add_FeartureSelection_Method=Add_FeartureSelection_Method,
+                                    Unmapped_num=Unmapped_num,len=ncol(newtrain),anno=featureAnno,verbose=verbose,cores=cores)
+          newtrain=cbind(newtrain,Unmapped_Data$train)
+          newtest=cbind(newtest,Unmapped_Data$test)
+          if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
+        }
       }
 
       #(Predict and Metric)
@@ -1068,10 +1076,10 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
       Record[1,1]=classifier
       Record[1,4]=stats::cor(testDataY,result,method='pearson')
       Record[1,2]=ROCR::performance(ROCR::prediction(result,testDataY),'auc')@y.values[[1]]
-      testDataY=as.factor(testDataY)
-      pre=as.factor(pre)
-      Record[1,3]=confusionMatrix(pre, testDataY)$overall['Accuracy'][[1]]
-      if(verbose)print(paste0('######~~~~',classifier2,'==>','AUC:',round(Record[1,2],digits = 3),' ','ACC:',round(Record[1,3],digits = 3),' ','PCCs:',round(Record[1,4],digits = 3)))
+      accuracy_class1 <- sum(pre[testDataY == 1] == 1) / sum(testDataY == 1)
+      accuracy_class0 <- sum(pre[testDataY == 0] == 0) / sum(testDataY == 0)
+      Record[1,3]=(accuracy_class1 + accuracy_class0) / 2
+      if(verbose)print(paste0('######~~~~',classifier2,'==>','AUC:',round(Record[1,2],digits = 3),' ','BAC:',round(Record[1,3],digits = 3),' ','PCCs:',round(Record[1,4],digits = 3)))
       final=list('Prediction'=predict,'Metric'=Record)
       T2=Sys.time()
       if(verbose)print(T2-T1)
@@ -1378,7 +1386,7 @@ HyBioM2=function(TrainData=NULL,pathlistDB=NULL,FeatureAnno=NULL,resampling=NULL
 #'
 #'
 #'
-FindParaModule=function(pathways_matrix=NULL,control_label=NULL,minModuleSize = seq(10,20,5),mergeCutHeight=seq(0,0.3,0.1),minModuleNum=20,power=NULL,exact=TRUE,ancestor_anno=NULL){
+FindParaModule=function(pathways_matrix=NULL,control_label=0,minModuleSize = seq(10,20,5),mergeCutHeight=seq(0,0.3,0.1),minModuleNum=20,power=NULL,exact=TRUE,ancestor_anno=NULL){
   if('package:WGCNA' %in% search()){
     final=list()
     if(exact==FALSE & is.null(ancestor_anno)){
@@ -1403,7 +1411,7 @@ FindParaModule=function(pathways_matrix=NULL,control_label=NULL,minModuleSize = 
       sft = pickSoftThreshold(data, powerVector = powers, verbose = 5)
       sink()
       if(is.na(sft$powerEstimate)){
-        stop('Could not find a proper powers , Please give a power by youself .')
+        return('Could not find a proper powers , Please give a power by youself .')
       }else{
         power=sft$powerEstimate
         message('Find the proper power!')

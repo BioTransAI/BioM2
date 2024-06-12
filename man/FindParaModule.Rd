@@ -6,7 +6,7 @@
 \usage{
 FindParaModule(
   pathways_matrix = NULL,
-  control_label = NULL,
+  control_label = 0,
   minModuleSize = seq(10, 20, 5),
   mergeCutHeight = seq(0, 0.3, 0.1),
   minModuleNum = 20,
