@@ -363,7 +363,7 @@ Matrix=result$PathwaysMatrix
 
 library(WGCNA)
 
-Para=FindParaModule(pathways_matrix = Matrix, control_label=0,minModuleSize = c(10,15,20,25), mergeCutHeight=c(0.1,0.15,0.2,0.25,0.3,0.35,0.4),)
+Para=FindParaModule(pathways_matrix = Matrix, control_label=0,minModuleSize =seq(5,20,5), mergeCutHeight=seq(0.1,0.4,0.1),power=NULL)
 
 > str(Para)
 List of 2
@@ -384,7 +384,7 @@ The modules relevant to the illness can then be obtained, with high biological i
 ```
 library(WGCNA)
 
-Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSize = 10, mergeCutHeight = 0.4, cutoff = 70)
+Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSize = 10, mergeCutHeight = 0.4, cutoff = 70,power=NULL)
 
 > str(Modules)
 List of 4
@@ -454,14 +454,6 @@ library(ggplot2)
 library(viridis)
 
 
-result=BioM2 ( TrainData = data , TestData = NULL ,              
-                pathlistDB = pathlistDB ,                         
-                FeatureAnno = FeatureAnno ,                       
-                classifier = 'liblinear' , nfolds = 5 ,          
-                target='pathways',      ##==>>  [ target = 'pathways']
-                cores = 5                                        
-)
-
 PlotPathFearture(BioM2_pathways_obj=result , pathlistDB = pathlistDB)
 ```
 ![barplot](https://github.com/jkkomm/img/blob/main/barplot.png)
@@ -494,13 +486,6 @@ library(igraph)
 library(ggnetwork)
 library(ggplot2)
 
-result=BioM2 ( TrainData = data , TestData = NULL ,              
-                pathlistDB = pathlistDB ,                         
-                FeatureAnno = FeatureAnno ,                       
-                classifier = 'liblinear' , nfolds = 5 ,          
-                target='pathways',    ##==>>  [ target = 'pathways']
-                cores = 5                                        
-)
 
 #Select the top 10 most significant pathways
 PathNames=result$PathwaysResult$id[1:10]
@@ -531,14 +516,6 @@ library(jiebaR)
 library("htmlwidgets")
 
 
-result=BioM2 ( TrainData = data , TestData = NULL ,              
-                pathlistDB = pathlistDB ,                         
-                FeatureAnno = FeatureAnno ,                       
-                classifier = 'liblinear' , nfolds = 5 ,          
-                target='pathways',          ##==>>  [ target = 'pathways']
-                cores = 5                                        
-)
-
 VisMultiModule(BioM2_pathways_obj = result)
 ```
 ![PathwaysResult](https://github.com/jkkomm/img/blob/main/CManhan2.png)
@@ -549,7 +526,7 @@ VisMultiModule(BioM2_pathways_obj = result)
 Visualize the process of selecting optimal parameters based on biological terms.
 ```
 Matrix=result$PathwaysMatrix
-Para=FindParaModule(pathways_matrix = Matrix, minModuleSize = c(6,7,8), mergeCutHeight=c(0.2,0.25,0.3,0.35,0.4,0.45,0.5))
+Para=FindParaModule(pathways_matrix = Matrix, minModuleSize = c(6,7,8), mergeCutHeight=c(0.2,0.25,0.3,0.35,0.4,0.45,0.5),power=NULL)
 
 VisMultiModule(FindParaModule_obj=Para)
 
@@ -562,7 +539,7 @@ VisMultiModule(FindParaModule_obj=Para)
 Each point represents a path, and points of the same color belong to the same illness-relevant module
 ```
 Matrix=result$PathwaysMatrix
-Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSize = 6, mergeCutHeight = 0.3, cutoff = 70)
+Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSize = 6, mergeCutHeight = 0.3, cutoff = 70,power=NULL)
 
 VisMultiModule(PathwaysModule_obj=Modules)
 ```
@@ -570,11 +547,14 @@ VisMultiModule(PathwaysModule_obj=Modules)
 
 Violin plot showing statistics for the pathway modules
 ```
-Matrix=result$PathwaysMatrix
-Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSize = 6, mergeCutHeight = 0.3, cutoff = 70)
+# xxx -> module index
+VisMultiModule(PathwaysModule_obj=Modules,volin=TRUE,control_label=0,module= xxx )
 
 img=list()
+
+ ##(Setting up a visual module index)
 modules=c(14,15,28,4)
+
 for(i in 1:length(xxx)){
   pic=VisMultiModule(PathwaysModule_obj=Modules,volin=TRUE,control_label=0,module=modules[i])
   img[[i]]=pic
@@ -590,11 +570,15 @@ img[[1]]+theme(plot.margin = unit(c(d,d,d,d), "cm"))+
 **VisMultiModule ( , ShowModule_obj )  ：**
 Summarize the biological information of the pathways in the module with a wordcloud.
 ```
-Matrix=result$PathwaysMatrix
-Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSize = 6, mergeCutHeight = 0.3, cutoff = 70)
+# xxx -> module index
+ShowModule(Modules,xxx)
+
+VisMultiModule(ShowModule_obj=ModulesInner)
 
 
+ ##(Setting up a visual module index)
 modules=c(14,15,28,4)
+
 output=paste0('Module',modules,'_WordCloud.png')
 for(i in 1:length(modules)){
   ModulesInner = ShowModule(Modules,modules[i])
@@ -646,9 +630,6 @@ image_ggplot(gg[[1]])+labs(title = ff2[1])+
 ### PlotCorModule()
 **Correlalogram for illness-relevant modules**
 ```
-Matrix=result$PathwaysMatrix
-Modules=PathwaysModule(pathways_matrix = Matrix , control_label = 0, minModuleSize = 6, mergeCutHeight = 0.3, cutoff = 70)
-
 PlotCorModule(PathwaysModule_obj=Modules)
 
 ```
