@@ -299,7 +299,7 @@ result=BioM2 (  TrainData = data , TestData = NULL ,
                 Stage1_FeartureSelection_Method = "cor", cutoff=0,                 
                 Stage2_FeartureSelection_Method = "RemoveHighcor",cutoff2 = 0.80,    
                 classifier2=NULL,                                                  
-                target='predict',                                                  ##==>>  [ target = 'pathways']
+                target='pathways',                                                  ##==>>  [ target = 'pathways']
                 cores = 5                                                          
 )
 
