@@ -10,6 +10,7 @@ VisMultiModule(
   ShowModule_obj = NULL,
   PathwaysModule_obj = NULL,
   exact = TRUE,
+  ancestor_anno = NULL,
   type_text_table = FALSE,
   text_table_theme = ttheme("mOrange"),
   volin = FALSE,
@@ -39,7 +40,9 @@ VisMultiModule(
 
 \item{PathwaysModule_obj}{Results produced by PathwaysModule()}
 
-\item{exact}{Whether to divide GO pathways more accurately}
+\item{exact}{Whether to divide GO pathways more accurately (work when ancestor_anno=NULL)}
+
+\item{ancestor_anno}{Annotations for ancestral relationships (like data('GO_Ancestor') )}
 
 \item{type_text_table}{Whether to display it in a table}
 

@@ -1,3 +1,20 @@
+Version 1.0.7
+=============
+-Added HyBioM2() function : BioM2 Hyperparametric Combination
+
+
+Version 1.0.7
+=============
+-Fix bugs[ VisMultiModule (),  PlotPathNet () ]
+-Added HybaseModel() function : Selection of the optimal basemodel
+
+
+Version 1.0.6
+=============
+-Fix a bug(Fixed an issue with the feature space)
+-Update README.md
+
+
 Version 1.0.5
 =============
 -Fix a bug

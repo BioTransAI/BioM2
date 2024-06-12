@@ -13,7 +13,8 @@ PathwaysModule(
   cutoff = 70,
   MinNumPathways = 5,
   p.adjust.method = "fdr",
-  exact = TRUE
+  exact = TRUE,
+  ancestor_anno = NULL
 )
 }
 \arguments{
@@ -33,7 +34,9 @@ PathwaysModule(
 
 \item{p.adjust.method}{p-value adjustment method.(holm", "hochberg", "hommel", "bonferroni", "BH", "BY",}
 
-\item{exact}{Whether to divide GO pathways more accurately}
+\item{exact}{Whether to divide GO pathways more accurately (work when ancestor_anno=NULL)}
+
+\item{ancestor_anno}{Annotations for ancestral relationships (like data('GO_Ancestor') )}
 }
 \value{
 A list containing differential module results that are highly biologically interpretable

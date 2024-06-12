@@ -4,14 +4,16 @@
 \alias{ShowModule}
 \title{Display biological information within each pathway module}
 \usage{
-ShowModule(obj = NULL, ID_Module = NULL, exact = TRUE)
+ShowModule(obj = NULL, ID_Module = NULL, exact = TRUE, ancestor_anno = NULL)
 }
 \arguments{
 \item{obj}{Results produced by PathwaysModule()}
 
 \item{ID_Module}{ID of the diff module}
 
-\item{exact}{Whether to divide GO pathways more accurately}
+\item{exact}{Whether to divide GO pathways more accurately (work when ancestor_anno=NULL)}
+
+\item{ancestor_anno}{Annotations for ancestral relationships (like data('GO_Ancestor') )}
 }
 \value{
 List containing biologically specific information within the module

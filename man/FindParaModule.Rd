@@ -11,7 +11,8 @@ FindParaModule(
   mergeCutHeight = seq(0, 0.3, 0.1),
   minModuleNum = 20,
   power = NULL,
-  exact = TRUE
+  exact = TRUE,
+  ancestor_anno = NULL
 )
 }
 \arguments{
@@ -27,7 +28,9 @@ FindParaModule(
 
 \item{power}{soft-thresholding power for network construction. Detail for WGCNA::blockwiseModules()}
 
-\item{exact}{Whether to divide GO pathways more accurately}
+\item{exact}{Whether to divide GO pathways more accurately (work when ancestor_anno=NULL)}
+
+\item{ancestor_anno}{Annotations for ancestral relationships (like data('GO_Ancestor') )}
 }
 \value{
 A list containing recommended parameters

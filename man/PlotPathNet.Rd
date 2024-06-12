@@ -11,7 +11,7 @@ PlotPathNet(
   pathlistDB = NULL,
   PathNames = NULL,
   cutoff = 0.2,
-  num = 20
+  num = 10
 )
 }
 \arguments{
