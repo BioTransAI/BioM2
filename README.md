@@ -363,7 +363,7 @@ Matrix=result$PathwaysMatrix
 
 library(WGCNA)
 
-Para=FindParaModule(pathways_matrix = Matrix, minModuleSize = c(10,15,20,25), mergeCutHeight=c(0.1,0.15,0.2,0.25,0.3,0.35,0.4))
+Para=FindParaModule(pathways_matrix = Matrix, control_label=0,minModuleSize = c(10,15,20,25), mergeCutHeight=c(0.1,0.15,0.2,0.25,0.3,0.35,0.4),)
 
 > str(Para)
 List of 2
