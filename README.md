@@ -494,12 +494,13 @@ Violin plot showing statistics for the pathway modules
 # xxx -> module index
 VisMultiModule(PathwaysModule_obj=Modules,volin=TRUE,control_label=0,module= xxx )
 
-img=list()
+
 
  ##(Setting up a visual module index)
 modules=c(14,15,28,4)
 
-for(i in 1:length(xxx)){
+img=list()
+for(i in 1:length(modules)){
   pic=VisMultiModule(PathwaysModule_obj=Modules,volin=TRUE,control_label=0,module=modules[i])
   img[[i]]=pic
 }
