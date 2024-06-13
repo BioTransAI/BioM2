@@ -562,7 +562,6 @@ HybaseModel=function(data=NULL,pathlistDB=NULL,FeatureAnno=NULL,resampling=NULL,
     if(verbose)print(paste0('<<<<<----- ',classifier,' ----->>>>>'))
     for(xxx in 1:nfolds){
       
-      sink(nullfile())
       t1=Sys.time()
       if(is.null(resampling)){
         trainData=TrainData[unlist(Resampling[-xxx]),]
@@ -592,8 +591,8 @@ HybaseModel=function(data=NULL,pathlistDB=NULL,FeatureAnno=NULL,resampling=NULL,
       trainDataList=trainDataList[which(lens>MinfeatureNum_pathways)]
       testDataList=testDataList[which(lens>MinfeatureNum_pathways)]
       featureNum_pathways=sapply(1:length(trainDataList),function(i2) length(trainDataList[[i2]]))
-      if(verbose)print(paste0('     |> Total number of selected pathways==>>',length(trainDataList)))
-      if(verbose)print(paste0('     |> Min features number of pathways==>>',min(featureNum_pathways)-1,'.......','Max features number of pathways==>>',max(featureNum_pathways)-1))
+      #if(verbose)print(paste0('     |> Total number of selected pathways==>>',length(trainDataList)))
+      #if(verbose)print(paste0('     |> Min features number of pathways==>>',min(featureNum_pathways)-1,'.......','Max features number of pathways==>>',max(featureNum_pathways)-1))
       
       
 
@@ -611,7 +610,7 @@ HybaseModel=function(data=NULL,pathlistDB=NULL,FeatureAnno=NULL,resampling=NULL,
       
 
       index=Stage2_FeartureSelection(Stage2_FeartureSelection_Method=Stage2_FeartureSelection_Method,data=train,
-                                     label=trainDataList[[1]]$label,cutoff=cutoff2,preMode='probability',classifier =classifier,verbose=verbose,cores=cores)
+                                     label=trainDataList[[1]]$label,cutoff=cutoff2,preMode='probability',classifier =classifier,verbose=FALSE,cores=cores)
       
       
       newtrain=do.call(cbind,train[index])
@@ -628,7 +627,7 @@ HybaseModel=function(data=NULL,pathlistDB=NULL,FeatureAnno=NULL,resampling=NULL,
                                   Unmapped_num=Unmapped_num,len=ncol(newtrain),anno=featureAnno,verbose=verbose,cores=cores)
         newtrain=cbind(newtrain,Unmapped_Data$train)
         newtest=cbind(newtest,Unmapped_Data$test)
-        if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
+        #if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
       }
       
 
@@ -650,7 +649,6 @@ HybaseModel=function(data=NULL,pathlistDB=NULL,FeatureAnno=NULL,resampling=NULL,
       pre=as.factor(pre)
       Record[xxx,4]=confusionMatrix(pre, testDataY)$overall['Accuracy'][[1]]
    
-      sink()
 
       if(xxx==nfolds){
 
@@ -1265,15 +1263,14 @@ HyBioM2=function(TrainData=NULL,pathlistDB=NULL,FeatureAnno=NULL,resampling=NULL
         }
         
         Record2=list()
-        sink(nullfile())
         for(ii in  1:length(stage2_cutoff)){
           
           if(stage2_cutoff[ii]==0){
             index=Stage2_FeartureSelection(Stage2_FeartureSelection_Method='None',data=train,
-                                           label=trainDataList[[1]]$label,cutoff=stage2_cutoff[ii],preMode='probability',classifier =classifier,cores=cores)
+                                           label=trainDataList[[1]]$label,cutoff=stage2_cutoff[ii],preMode='probability',classifier =classifier,verbose = FALSE,cores=cores)
           }else{
             index=Stage2_FeartureSelection(Stage2_FeartureSelection_Method=Stage2_FeartureSelection_Method,data=train,
-                                           label=trainDataList[[1]]$label,cutoff=stage2_cutoff[ii],preMode='probability',classifier =classifier,cores=cores)
+                                           label=trainDataList[[1]]$label,cutoff=stage2_cutoff[ii],preMode='probability',classifier =classifier,verbose = FALSE,cores=cores)
             
           }
           
@@ -1332,7 +1329,7 @@ HyBioM2=function(TrainData=NULL,pathlistDB=NULL,FeatureAnno=NULL,resampling=NULL
           
           
         }
-        sink()
+
         Record2=do.call(rbind,Record2) 
         final[[xxx]]=Record2
       }
@@ -1386,7 +1383,7 @@ HyBioM2=function(TrainData=NULL,pathlistDB=NULL,FeatureAnno=NULL,resampling=NULL
 #'
 #'
 #'
-FindParaModule=function(pathways_matrix=NULL,control_label=0,minModuleSize = seq(10,20,5),mergeCutHeight=seq(0,0.3,0.1),minModuleNum=20,power=NULL,exact=TRUE,ancestor_anno=NULL){
+FindParaModule=function(pathways_matrix=NULL,control_label=0,minModuleSize = seq(10,20,5),mergeCutHeight=seq(0,0.3,0.1),minModuleNum=5,power=NULL,exact=TRUE,ancestor_anno=NULL){
   if('package:WGCNA' %in% search()){
     final=list()
     if(exact==FALSE & is.null(ancestor_anno)){
@@ -1407,9 +1404,7 @@ FindParaModule=function(pathways_matrix=NULL,control_label=0,minModuleSize = seq
 
     if(is.null(power)){
       powers = c(c(1:10), seq(from = 12, to=20, by=1))
-      sink(nullfile())
-      sft = pickSoftThreshold(data, powerVector = powers, verbose = 5)
-      sink()
+      sft = pickSoftThreshold(data, powerVector = powers, verbose = 0)
       if(is.na(sft$powerEstimate)){
         return('Could not find a proper powers , Please give a power by youself .')
       }else{
@@ -1428,15 +1423,13 @@ FindParaModule=function(pathways_matrix=NULL,control_label=0,minModuleSize = seq
         n=length(cutoff)
         result=data.frame(mergeCutHeight=1:n,Number_clusters=1:n,Mean_number_pathways=1:n,Mean_Fraction=1:n,Sd_Fraction=1:n,minModuleSize=1:n)
         for(ii in 1:length(cutoff)){
-          sink(nullfile())
           net = blockwiseModules(data, power = power,
                                  TOMType = "unsigned", minModuleSize = Num_module[xxx],
                                  reassignThreshold = 0, mergeCutHeight = cutoff[ii],
                                  numericLabels = TRUE, pamRespectsDendro = FALSE,
                                  saveTOMs = F,
                                  saveTOMFileBase = "femaleMouseTOM",
-                                 verbose = 3)
-          sink()
+                                 verbose = 0)
           cluster=data.frame(ID=names(net$colors),cluster=net$colors)
           cluster$cluster=cluster$cluster+1
           cluster_list=list()
@@ -1537,24 +1530,20 @@ PathwaysModule=function(pathways_matrix=NULL,control_label=NULL,power=NULL,minMo
 
     if(is.null(power)){
       powers = c(1:30)
-      sink(nullfile())
-      sft = pickSoftThreshold(data, powerVector = powers, verbose = 5)
-      sink()
+      sft = pickSoftThreshold(data, powerVector = powers, verbose = 0)
       if(is.na(sft$powerEstimate)){
-        stop('Could not find a proper powers , Please give a power by youself .')
+        return('Could not find a proper powers , Please give a power by youself .')
       }else{
         power=sft$powerEstimate
         message('Find the proper power!')
       }
     }
-    sink(nullfile())
     net = blockwiseModules(data, power = power,
                            TOMType = "unsigned", minModuleSize = minModuleSize,
                            reassignThreshold = 0, mergeCutHeight = mergeCutHeight,
                            numericLabels = TRUE, pamRespectsDendro = FALSE,
                            saveTOMs = F,
-                           verbose = 3)
-    sink()
+                           verbose = 0)
     cluster=data.frame(ID=names(net$colors),cluster=net$colors)
     cluster_list=list()
     faction=vector()
