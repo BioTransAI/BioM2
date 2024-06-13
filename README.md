@@ -108,6 +108,12 @@ library(caret)
 library(parallel)
 library(BioM2)
 
+# Additional learners, including some learners which are not yet to be considered stable or which are not available on CRAN,
+# are connected via the mlr3extralearners package. (https://mlr-org.com/learners.html)
+
+remotes::install_github("mlr-org/mlr3extralearners@*release") ##(install 'mlr3extralearners')
+install.packages('LiblineaR')
+
 result=BioM2 (  TrainData = data , TestData = NULL ,                               ## If you only have one dataset
                 pathlistDB = pathlistDB ,                                          ## ==>> [Pathway annotation data]
                 FeatureAnno = FeatureAnno ,                                        ## ==>> [Feature annotation data]
