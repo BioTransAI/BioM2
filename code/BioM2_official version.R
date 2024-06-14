@@ -44,12 +44,18 @@ baseModel=function ( trainData, testData, predMode = "probability",
     }
 
     if( predMode == 'probability'){
-      classifier=paste0('classif.',classifier,'')
+      if(is.character(classifier)){
+        classifier=paste0('classif.',classifier,'')
+        model=lrn(classifier,predict_type = "prob")
+      }else{
+        model=classifier
+      }
+     
       trainData[,1]=as.factor(trainData[,1])
       testData[,1]=as.factor(testData[,1])
       trainData=as_task_classif(trainData,target='label')
       testData=as_task_classif(testData,target='label')
-      model=lrn(classifier,predict_type = "prob")
+      
 
       if(!is.null(paramlist)){
         at = auto_tuner(
@@ -72,12 +78,16 @@ baseModel=function ( trainData, testData, predMode = "probability",
         return(predict)
       }
     }else if( predMode == 'regression'){
-      classifier=paste0('regr.',classifier,'')
+      if(is.character(classifier)){
+        classifier=paste0('regr.',classifier,'')
+        model=lrn(classifier)
+      }else{
+        model=classifier
+      }
       trainData[,1]=as.numeric(trainData[,1])
       testData[,1]=as.numeric(testData[,1])
       trainData=as_task_regr(trainData,target='label')
       testData=as_task_regr(testData,target='label')
-      model=lrn(classifier)
       if(!is.null(paramlist)){
         at = auto_tuner(
           tuner = tnr("grid_search", resolution = 5, batch_size = 5),
@@ -482,6 +492,183 @@ AddUnmapped=function(train=NULL,test=NULL,Unmapped_num=NULL,Add_FeartureSelectio
 }
 
 
+#' Selection of the optimal base model
+#'
+#' @param data The input training dataset. The first column
+#' is the label or the output. For binary classes,
+#' 0 and 1 are used to indicate the class member.
+#' @param pathlistDB A list of pathways with pathway IDs and their
+#' corresponding genes ('entrezID' is used).
+#' For details, please refer to ( data("GO2ALLEGS_BP") )
+#' @param FeatureAnno The annotation data stored in a data.frame for probe
+#' mapping. It must have at least two columns named 'ID' and 'entrezID'.
+#' (For details, please refer to data( data("MethylAnno") )
+#' @param resampling Resampling in mlr3verse.
+#' @param nfolds k-fold cross validation 
+#' @param classifiers A string of character vectors(Learners in mlr3)
+#' @param predMode The prediction mode. Available options are
+#' c('probability', 'classification').
+#' @param PathwaySizeUp The upper-bound of the number of genes in each
+#' biological pathways.
+#' @param PathwaySizeDown The lower-bound of the number of genes in each
+#' biological pathways.
+#' @param MinfeatureNum_pathways The minimal defined pathway size after mapping your
+#' own data to pathlistDB(KEGG database/GO database).
+#' @param Add_UnMapped Whether to add unmapped probes for prediction
+#' @param Unmapped_num The number of unmapped probes
+#' @param Add_FeartureSelection_Method Feature selection methods.
+#' @param Inner_CV Whether to perform a k-fold verification on the training set.
+#' @param inner_folds k-fold verification on the training set.
+#' @param Stage1_FeartureSelection_Method Feature selection methods.
+#' @param cutoff The cutoff used for feature selection threshold. It can be any value
+#' between 0 and 1.
+#' @param Stage2_FeartureSelection_Method Feature selection methods.
+#' @param cutoff2 The cutoff used for feature selection threshold. It can be any value
+#' between 0 and 1.
+#' @param cores The number of cores used for computation.
+#' @param verbose Whether to print running process information to the console
+#'
+#' @return A data frame containing the predictive performance of each basemodel
+#' @export
+#' @import ROCR
+#' @import caret
+
+HybaseModel=function(data=NULL,pathlistDB=NULL,FeatureAnno=NULL,resampling=NULL,nfolds=5,classifiers='liblinear', predMode = "probability",
+                     PathwaySizeUp=200,PathwaySizeDown=20,MinfeatureNum_pathways=10,
+                     Add_UnMapped=TRUE,Unmapped_num=300,Add_FeartureSelection_Method='wilcox.test',
+                     Inner_CV=TRUE,inner_folds=10,
+                     Stage1_FeartureSelection_Method='cor',cutoff=0.3,
+                     Stage2_FeartureSelection_Method='RemoveHighcor',cutoff2=0.95,
+                     cores=1,verbose=TRUE){
+  if(verbose)print('===================HybaseModel==================')
+  
+  if(Sys.info()[1]=="Windows"){
+    cores=1
+  }
+  
+  prediction=list()
+  FeatureAnno$ID=gsub('[\\.\\_\\-]','',FeatureAnno$ID)
+  colnames(TrainData)=gsub('[\\.\\_\\-]','',colnames(TrainData))
+  list_pathways=list()
+  Record=data.frame(resampling_id=1:nfolds,learner_name=1:nfolds,AUC=1:nfolds,ACC=1:nfolds,PCCs=1:nfolds)
+  Resampling=caret::createFolds(TrainData$label,k=nfolds)
+  if(!is.null(resampling)){
+    nfolds=resampling$param_set$values$folds
+  }
+  T1=Sys.time()
+  final=list()
+  for(lrn in 1:length(classifiers)){
+    classifier=classifiers[lrn]
+    if(verbose)print(paste0('<<<<<----- ',classifier,' ----->>>>>'))
+    for(xxx in 1:nfolds){
+      
+      t1=Sys.time()
+      if(is.null(resampling)){
+        trainData=TrainData[unlist(Resampling[-xxx]),]
+        testData=TrainData[unlist(Resampling[xxx]),]
+      }else{
+        trainData=TrainData[resampling$train_set(xxx),]
+        testData=TrainData[resampling$test_set(xxx),]
+      }
+      geneNum_pathways=sapply(1:length(pathlistDB),function(i) length(pathlistDB[[i]]))
+      pathlistDB_sub=pathlistDB[which(geneNum_pathways > PathwaySizeDown & geneNum_pathways < PathwaySizeUp )]
+      featureAnno=FeatureAnno[FeatureAnno$ID %in% colnames(trainData),]
+      if(verbose)print(paste0('     |>Total number of pathways==>>',length(pathlistDB_sub)))
+      
+      
+      
+
+      feature_pathways=Stage1_FeartureSelection(Stage1_FeartureSelection_Method=Stage1_FeartureSelection_Method,data=trainData,cutoff=cutoff,
+                                                featureAnno=featureAnno,pathlistDB_sub=pathlistDB_sub,cores=cores,verbose=verbose)
+      
+      lens=sapply(1:length(feature_pathways),function(x) length(feature_pathways[[x]]))
+      
+
+      trainDataList=mclapply(1:length(feature_pathways),function(x) trainData[,feature_pathways[[x]]] ,mc.cores=cores)
+      testDataList=mclapply(1:length(feature_pathways),function(x) testData[,feature_pathways[[x]]] ,mc.cores=cores)
+      names(trainDataList)=names(pathlistDB_sub)
+      names(testDataList)=names(pathlistDB_sub)
+      trainDataList=trainDataList[which(lens>MinfeatureNum_pathways)]
+      testDataList=testDataList[which(lens>MinfeatureNum_pathways)]
+      featureNum_pathways=sapply(1:length(trainDataList),function(i2) length(trainDataList[[i2]]))
+      #if(verbose)print(paste0('     |> Total number of selected pathways==>>',length(trainDataList)))
+      #if(verbose)print(paste0('     |> Min features number of pathways==>>',min(featureNum_pathways)-1,'.......','Max features number of pathways==>>',max(featureNum_pathways)-1))
+      
+      
+
+      if(Inner_CV==TRUE){
+        if(verbose)print('     |> Using Inner CV ~ ~ ~')
+        train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =NULL,predMode =predMode,classifier = classifier,inner_folds=inner_folds),mc.cores=cores)
+        test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode =predMode,classifier = classifier),mc.cores=cores)
+      }else{
+        
+        train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =trainDataList[[i4]],predMode = predMode ,classifier = classifier),mc.cores=cores)
+        test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode = predMode ,classifier = classifier),mc.cores=cores)
+        
+        
+      }
+      
+
+      index=Stage2_FeartureSelection(Stage2_FeartureSelection_Method=Stage2_FeartureSelection_Method,data=train,
+                                     label=trainDataList[[1]]$label,cutoff=cutoff2,preMode='probability',classifier =classifier,verbose=FALSE,cores=cores)
+      
+      
+      newtrain=do.call(cbind,train[index])
+      colnames(newtrain)=names(trainDataList)[index]
+      newtrain=cbind(label=trainDataList[[1]]$label,newtrain)
+      
+      newtest=do.call(cbind,test[index])
+      colnames(newtest)=names(trainDataList)[index]
+      newtest=cbind(label=testDataList[[1]]$label,newtest)
+      colnames(newtest)=gsub(':','',colnames(newtest))
+      colnames(newtrain)=gsub(':','',colnames(newtrain))
+      if(Add_UnMapped==TRUE){
+        Unmapped_Data=AddUnmapped(train=trainData,test=testData,Add_FeartureSelection_Method=Add_FeartureSelection_Method,
+                                  Unmapped_num=Unmapped_num,len=ncol(newtrain),anno=featureAnno,verbose=verbose,cores=cores)
+        newtrain=cbind(newtrain,Unmapped_Data$train)
+        newtest=cbind(newtest,Unmapped_Data$test)
+        #if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
+      }
+      
+
+      
+      
+      classifier2=classifier
+      
+      result=baseModel(trainData=newtrain,testData=newtest,predMode ='probability',classifier = classifier2)
+      prediction_part=data.frame(sample=rownames(testData),prediction=result)
+      prediction[[xxx]]=prediction_part
+      names(prediction)[xxx]=paste('Resample No.',xxx)
+      testDataY=testDataList[[1]]$label
+      pre=ifelse(result>0.5,1,0)
+      Record[xxx,1]=xxx
+      Record[xxx,2]=classifier2
+      Record[xxx,5]=stats::cor(testDataY,result,method='pearson')
+      Record[xxx,3]=ROCR::performance(ROCR::prediction(result,testDataY),'auc')@y.values[[1]]
+      testDataY=as.factor(testDataY)
+      pre=as.factor(pre)
+      Record[xxx,4]=confusionMatrix(pre, testDataY)$overall['Accuracy'][[1]]
+   
+
+      if(xxx==nfolds){
+
+        T2=Sys.time()
+        if(verbose)print(paste0('{|>>>=====','Learner: ',classifier,'---Performance Metric---==>>','AUC:',round(mean(Record$AUC),digits = 3),' ','ACC:',round(mean(Record$ACC),digits = 3),' ','PCCs:',round(mean(Record$PCCs),digits = 3),'======<<<|}'))
+        final[[lrn]]=Record
+        if(verbose)print(T2-T1)
+        if(verbose)print('                       ')
+        
+      }
+    }
+  }
+  final=do.call(rbind,final)
+  final=aggregate(final[,3:5],by=list(learner_name=final$learner_name),mean)
+  final=final[order(final$AUC,decreasing = T),]
+  if(verbose)print(paste0('Best baseModel: ', final[1,1]))
+  return(final)
+}
+
+
 
 #' Biologically Explainable Machine Learning Framework
 #'
@@ -569,7 +756,7 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
                 Add_UnMapped=TRUE,Unmapped_num=300,Add_FeartureSelection_Method='wilcox.test',
                 Inner_CV=TRUE,inner_folds=10,
                 Stage1_FeartureSelection_Method='cor',cutoff=0.3,
-                Stage2_FeartureSelection_Method='RemoveHighcor',cutoff2=0.85,classifier2=NULL,
+                Stage2_FeartureSelection_Method='RemoveHighcor',cutoff2=0.95,classifier2=NULL,
                 target='predict',p.adjust.method='fdr',save_pathways_matrix=FALSE,cores=1,verbose=TRUE){
   if(verbose)print('===================BioM2==================')
 
@@ -674,11 +861,15 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
         colnames(newtest)=gsub(':','',colnames(newtest))
         colnames(newtrain)=gsub(':','',colnames(newtrain))
         if(Add_UnMapped==TRUE){
-          Unmapped_Data=AddUnmapped(train=trainData,test=testData,Add_FeartureSelection_Method=Add_FeartureSelection_Method,
-                                    Unmapped_num=Unmapped_num,len=ncol(newtrain),anno=featureAnno,verbose=verbose,cores=cores)
-          newtrain=cbind(newtrain,Unmapped_Data$train)
-          newtest=cbind(newtest,Unmapped_Data$test)
-          if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
+          if(Unmapped_num==0){
+            if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
+          }else{
+            Unmapped_Data=AddUnmapped(train=trainData,test=testData,Add_FeartureSelection_Method=Add_FeartureSelection_Method,
+                                      Unmapped_num=Unmapped_num,len=ncol(newtrain),anno=featureAnno,verbose=verbose,cores=cores)
+            newtrain=cbind(newtrain,Unmapped_Data$train)
+            newtest=cbind(newtest,Unmapped_Data$test)
+            if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
+          }
         }
 
         #(Predict and Metric)
@@ -697,10 +888,10 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
         Record[xxx,2]=classifier2
         Record[xxx,5]=stats::cor(testDataY,result,method='pearson')
         Record[xxx,3]=ROCR::performance(ROCR::prediction(result,testDataY),'auc')@y.values[[1]]
-        testDataY=as.factor(testDataY)
-        pre=as.factor(pre)
-        Record[xxx,4]=confusionMatrix(pre, testDataY)$overall['Accuracy'][[1]]
-        if(verbose)print(paste0('######Resampling NO.',xxx,'~~~~',classifier2,'==>','AUC:',round(Record[xxx,3],digits = 3),' ','ACC:',round(Record[xxx,4],digits = 3),' ','PCCs:',round(Record[xxx,5],digits = 3)))
+        accuracy_class1 <- sum(pre[testDataY == 1] == 1) / sum(testDataY == 1)
+        accuracy_class0 <- sum(pre[testDataY == 0] == 0) / sum(testDataY == 0)
+        Record[xxx,4]=(accuracy_class1 + accuracy_class0) / 2
+        if(verbose)print(paste0('######Resampling NO.',xxx,'~~~~',classifier2,'==>','AUC:',round(Record[xxx,3],digits = 3),' ','BAC:',round(Record[xxx,4],digits = 3),' ','PCCs:',round(Record[xxx,5],digits = 3)))
         t2=Sys.time()
         if(verbose)print(t2-t1)
         if(verbose)print('---------------------####################------------------')
@@ -800,10 +991,10 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
       if(verbose)print('Step5: FeartureSelection-pathways')
       index=Stage2_FeartureSelection(Stage2_FeartureSelection_Method=Stage2_FeartureSelection_Method,data=train,
                                     label=trainDataList[[1]]$label,cutoff=cutoff2,preMode='probability',classifier =classifier,verbose=verbose,cores=cores)
-      corr=sapply(1:length(testDataList),function(x) stats::cor(test[[x]],testDataList[[x]]$label,method='pearson'))
-      newtest=do.call(cbind, test)
-      colnames(newtest)=names(testDataList)
+      newtest=do.call(cbind, test[index])
+      colnames(newtest)=names(testDataList)[index]
       newtest=cbind(label=testDataList[[1]]$label,newtest)
+      corr=stats::cor(newtest[,1],newtest[,-1])
       matrix_pathways=newtest
       rownames(matrix_pathways)=rownames(TestData)
       if(verbose)print(paste0('     |>min correlation of pathways=====>>>',round(min(corr),digits = 3),'......','max correlation of pathways===>>>',round(max(corr),digits = 3)))
@@ -860,11 +1051,15 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
       colnames(newtest)=gsub(':','',colnames(newtest))
       colnames(newtrain)=gsub(':','',colnames(newtrain))
       if(Add_UnMapped==TRUE){
-        Unmapped_Data=AddUnmapped(train=trainData,test=testData,,Add_FeartureSelection_Method=Add_FeartureSelection_Method,
-                                  Unmapped_num=Unmapped_num,anno=featureAnno,verbose=verbose,cores=cores)
-        newtrain=cbind(newtrain,Unmapped_Data$train)
-        newtest=cbind(newtest,Unmapped_Data$test)
-        if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
+        if(Unmapped_num==0){
+          if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
+        }else{
+          Unmapped_Data=AddUnmapped(train=trainData,test=testData,Add_FeartureSelection_Method=Add_FeartureSelection_Method,
+                                    Unmapped_num=Unmapped_num,len=ncol(newtrain),anno=featureAnno,verbose=verbose,cores=cores)
+          newtrain=cbind(newtrain,Unmapped_Data$train)
+          newtest=cbind(newtest,Unmapped_Data$test)
+          if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
+        }
       }
 
       #(Predict and Metric)
@@ -879,10 +1074,10 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
       Record[1,1]=classifier
       Record[1,4]=stats::cor(testDataY,result,method='pearson')
       Record[1,2]=ROCR::performance(ROCR::prediction(result,testDataY),'auc')@y.values[[1]]
-      testDataY=as.factor(testDataY)
-      pre=as.factor(pre)
-      Record[1,3]=confusionMatrix(pre, testDataY)$overall['Accuracy'][[1]]
-      if(verbose)print(paste0('######~~~~',classifier2,'==>','AUC:',round(Record[1,2],digits = 3),' ','ACC:',round(Record[1,3],digits = 3),' ','PCCs:',round(Record[1,4],digits = 3)))
+      accuracy_class1 <- sum(pre[testDataY == 1] == 1) / sum(testDataY == 1)
+      accuracy_class0 <- sum(pre[testDataY == 0] == 0) / sum(testDataY == 0)
+      Record[1,3]=(accuracy_class1 + accuracy_class0) / 2
+      if(verbose)print(paste0('######~~~~',classifier2,'==>','AUC:',round(Record[1,2],digits = 3),' ','BAC:',round(Record[1,3],digits = 3),' ','PCCs:',round(Record[1,4],digits = 3)))
       final=list('Prediction'=predict,'Metric'=Record)
       T2=Sys.time()
       if(verbose)print(T2-T1)
@@ -894,6 +1089,279 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
 
 
 
+
+#' BioM2 Hyperparametric Combination
+#'
+#' @param TrainData The input training dataset. The first column
+#' is the label or the output. For binary classes,
+#' 0 and 1 are used to indicate the class member.
+#' @param pathlistDB A list of pathways with pathway IDs and their
+#' corresponding genes ('entrezID' is used).
+#' For details, please refer to ( data("GO2ALLEGS_BP") )
+#' @param FeatureAnno The annotation data stored in a data.frame for probe
+#' mapping. It must have at least two columns named 'ID' and 'entrezID'.
+#' (For details, please refer to data( data("MethylAnno") )
+#' @param resampling Resampling in mlr3verse.
+#' @param nfolds k-fold cross validation ( Only supported when TestData = NULL )
+#' @param classifier Learners in mlr3
+#' @param predMode The prediction mode. Available options are
+#' c('probability', 'classification').
+#' @param PathwaySizeUp The upper-bound of the number of genes in each
+#' biological pathways.
+#' @param PathwaySizeDown The lower-bound of the number of genes in each
+#' biological pathways.
+#' @param MinfeatureNum_pathways The minimal defined pathway size after mapping your
+#' own data to pathlistDB(KEGG database/GO database).
+#' @param Add_UnMapped Whether to add unmapped probes for prediction
+#' @param Unmapped_num The number of unmapped probes
+#' @param Add_FeartureSelection_Method Feature selection methods.
+#' @param Inner_CV Whether to perform a k-fold verification on the training set.
+#' @param inner_folds k-fold verification on the training set.
+#' @param Stage1_FeartureSelection_Method Feature selection methods.
+#' @param stage1_cutoff The cutoff used for feature selection threshold. It can be any value
+#' between 0 and 1.
+#' @param Stage2_FeartureSelection_Method Feature selection methods.
+#' @param stage2_cutoff The cutoff used for feature selection threshold. It can be any value
+#' between 0 and 1.
+#' @param classifier2 Learner for stage 2 prediction(if classifier2==NULL,then it is the same as the learner in stage 1.)
+#' @param cores The number of cores used for computation.
+#' @param verbose Whether to print running process information to the console
+#'
+#'
+#' @return A data frame contains hyperparameter results
+#' @export
+#' @import ROCR
+#' @import caret
+#' @importFrom utils head 
+#' @importFrom stats  wilcox.test 
+
+#'
+HyBioM2=function(TrainData=NULL,pathlistDB=NULL,FeatureAnno=NULL,resampling=NULL,nfolds=5,classifier='liblinear', predMode = "probability",
+                 PathwaySizeUp=200,PathwaySizeDown=20,MinfeatureNum_pathways=10,
+                 Add_UnMapped=TRUE,Add_FeartureSelection_Method='wilcox.test',Unmapped_num=300,
+                 Inner_CV=TRUE,inner_folds=10,
+                 Stage1_FeartureSelection_Method='cor',stage1_cutoff=0.3,
+                 Stage2_FeartureSelection_Method='RemoveHighcor',stage2_cutoff=0.8,
+                 classifier2=NULL,cores=1,verbose=TRUE){
+  re=list()
+  if(verbose)print('===================HyBioM2==================')
+  for(c1 in 1:length(classifier)){
+    stage1_learner=classifier[c1]
+    HOPE=list()
+    t1=Sys.time()
+    for(luck in 1:length(stage1_cutoff)){
+      set.seed(666)
+      cutoff=stage1_cutoff[luck]
+      Resampling=createFolds(TrainData$label,k=nfolds)
+      final=list()
+      
+      pr=sum(TrainData$label==1)>sum(TrainData$label==0)
+      for(xxx in 1:nfolds){
+        #print('Step1: ReadData')
+        trainData=TrainData[unlist(Resampling[-xxx]),]
+        testData=TrainData[unlist(Resampling[xxx]),]
+        geneNum_pathways=sapply(1:length(pathlistDB),function(i) length(pathlistDB[[i]]))
+        pathlistDB_sub=pathlistDB[which(geneNum_pathways > PathwaySizeDown & geneNum_pathways < PathwaySizeUp )]
+        #print(paste0('     |>Total number of pathways==>>',length(pathlistDB_sub)))
+        
+        
+        #print('Step2: FeartureSelection-features')
+        if(Stage1_FeartureSelection_Method=='cor'){
+          #print(paste0('      Using <<  correlation  >>',' ,and you choose cutoff:',cutoff))
+          Cor=stats::cor(trainData$label,trainData)
+          Cor=ifelse(Cor>0,Cor,-Cor)
+          names(Cor)=colnames(trainData)
+          Cor_names=names(Cor)
+          Cor_cutoff=Cor[which(Cor>cutoff)]
+          Cor_cutoff_names=names(Cor_cutoff)
+        }else{
+          #print(paste0('      Using <<  wilcox.test  >>',' ,and you choose cutoff:',cutoff))
+          train_0=trainData[which(trainData$label==0),]
+          train_1=trainData[which(trainData$label==1),]
+          Cor=unlist(mclapply(1:ncol(trainData),function(x) wilcox.test(train_0[,x],train_1[,x])$p.value,mc.cores=10))
+          
+          names(Cor)=colnames(trainData)
+          Cor_names=names(Cor)
+          Cor_cutoff=Cor[which(Cor<cutoff)]
+          Cor_cutoff_names=names(Cor_cutoff)
+        }
+        
+        featureAnno=FeatureAnno[FeatureAnno$ID %in% colnames(trainData),]
+        MinfeatureNum_pathways2=MinfeatureNum_pathways+1
+        featureNum_pathways=mclapply(1:length(pathlistDB_sub),function(x){
+          id=c('label',featureAnno$ID[which(featureAnno$entrezID %in% pathlistDB_sub[[x]])])
+          if(length(id)>MinfeatureNum_pathways2){
+            id2=id[which(id %in% Cor_cutoff_names)]
+            if(length(id2)<MinfeatureNum_pathways2){
+              a=Cor[id]
+              if(Stage1_FeartureSelection_Method=='cor'){
+                id2=names(a)[order(a,decreasing = T)[1:MinfeatureNum_pathways2]]
+              }else{
+                id2=names(a)[order(a,decreasing = F)[1:MinfeatureNum_pathways2]]
+              }
+              return(id2)
+            }else{
+              return(id2)
+            }
+          }else{
+            return(id)
+          }
+        } ,mc.cores=cores)
+        lens=sapply(1:length(featureNum_pathways),function(x) length(featureNum_pathways[[x]]))
+        
+        #print('Step3: MergeData')
+        trainDataList=mclapply(1:length(featureNum_pathways),function(x) trainData[,featureNum_pathways[[x]]] ,mc.cores=cores)
+        testDataList=mclapply(1:length(featureNum_pathways),function(x) testData[,featureNum_pathways[[x]]] ,mc.cores=cores)
+        names(trainDataList)=names(pathlistDB_sub)
+        names(testDataList)=names(pathlistDB_sub)
+        trainDataList=trainDataList[which(lens>MinfeatureNum_pathways)]
+        testDataList=testDataList[which(lens>MinfeatureNum_pathways)]
+        featureNum_pathways2=sapply(1:length(trainDataList),function(i2) length(trainDataList[[i2]]))
+        #print(paste0('     |> Total number of selected pathways==>>',length(trainDataList)))
+        #print(paste0('     |> Min features number of pathways==>>',min(featureNum_pathways2)-1,'.......','Max features number of pathways==>>',max(featureNum_pathways2)-1))
+        
+        
+        #(FeartureSelection-pathways)
+        #print('Step4: Reconstruction')
+        if(Inner_CV){
+          #print('     |> Using Inner CV ~ ~ ~')
+          train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =NULL,predMode =predMode,classifier = classifier,inner_folds=inner_folds),mc.cores=cores)
+          test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode =predMode,classifier = classifier),mc.cores=cores)
+          #pred=mclapply(1:length(trainDataList),function(i4) baseModel2(trainData =trainDataList[[i4]],testData =testDataList[[i4]],classifier = stage1_learner,inner_folds=inner_folds),mc.cores=cores)
+          #train=lapply(1:length(pred),function(x) pred[[x]]$predtrain)
+          #test=lapply(1:length(pred),function(x) pred[[x]]$predtest)
+        }else{
+          
+          train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =trainDataList[[i4]],predMode = predMode ,classifier = stage1_learner),mc.cores=cores)
+          test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode = predMode ,classifier = stage1_learner),mc.cores=cores)
+          
+        }
+        
+        #print('     <<< Reconstruction Done! >>>     ')
+        
+        #(FeartureSelection-pathways)
+        #print('Step5: FeartureSelection-pathways')
+        
+        
+        dbmap=unique(unlist(pathlistDB_sub))
+        annomap=unique(featureAnno$entrezID)
+        mapgene=intersect(annomap,dbmap)
+        map=featureAnno$ID[which(featureAnno$entrezID %in% mapgene)]
+        Unmapped_Train=trainData[,setdiff(colnames(trainData),map)]
+        Unmapped_Test=testData[,setdiff(colnames(trainData),map)]
+        #print(paste0('Unmapped_num: ',ncol(Unmapped_Train)))
+        Unmapped_0=Unmapped_Train[which(Unmapped_Train$label==unique(Unmapped_Train$label)[1]),]
+        Unmapped_1=Unmapped_Train[which(Unmapped_Train$label==unique(Unmapped_Train$label)[2]),]
+        if(Add_FeartureSelection_Method=='cor'){
+          Unmapped_pvalue= abs(stats::cor(Unmapped_Train$label,Unmapped_Train[,-1]))
+          Unmapped_pvalue=1/Unmapped_pvalue
+        }else{
+          Unmapped_0=Unmapped_Train[which(Unmapped_Train$label==unique(Unmapped_Train$label)[1]),]
+          Unmapped_1=Unmapped_Train[which(Unmapped_Train$label==unique(Unmapped_Train$label)[2]),]
+          Unmapped_pvalue=unlist(mclapply(2:ncol(Unmapped_Train),function(x) wilcox.test(Unmapped_0[,x],Unmapped_1[,x])$p.value,mc.cores=cores))
+          
+        }
+        
+        Record2=list()
+        for(ii in  1:length(stage2_cutoff)){
+          
+          if(stage2_cutoff[ii]==0){
+            index=Stage2_FeartureSelection(Stage2_FeartureSelection_Method='None',data=train,
+                                           label=trainDataList[[1]]$label,cutoff=stage2_cutoff[ii],preMode='probability',classifier =classifier,verbose = FALSE,cores=cores)
+          }else{
+            index=Stage2_FeartureSelection(Stage2_FeartureSelection_Method=Stage2_FeartureSelection_Method,data=train,
+                                           label=trainDataList[[1]]$label,cutoff=stage2_cutoff[ii],preMode='probability',classifier =classifier,verbose = FALSE,cores=cores)
+            
+          }
+          
+          if(is.null(classifier2)){
+            stage2_learners=stage1_learner
+          }else{
+            stage2_learners=classifier2
+          }
+          
+          n=length(Unmapped_num)*length(stage2_learners)
+          Record=data.frame(Unmapped_num=1:n,stage2_learner=1:n,AUC=1:n,
+                            PCC=1:n,BAC=1:n,cutoff=1:n)
+          for(i in 1:length(Unmapped_num)){
+            newtrain=do.call(cbind,train[index])
+            colnames(newtrain)=names(trainDataList)[index]
+            newtrain=cbind(label=trainDataList[[1]]$label,newtrain)
+            
+            newtest=do.call(cbind,test[index])
+            colnames(newtest)=names(trainDataList)[index]
+            newtest=cbind(label=testDataList[[1]]$label,newtest)
+            colnames(newtest)=gsub(':','',colnames(newtest))
+            colnames(newtrain)=gsub(':','',colnames(newtrain))
+            if(Add_UnMapped==TRUE & Unmapped_num[i] > 0 ){
+              if(length(Unmapped_pvalue)<Unmapped_num[i]){
+                Unmapped_Num=length(Unmapped_pvalue)
+              }else{
+                Unmapped_Num=Unmapped_num[i]
+              }
+              Unmapped_id=order(Unmapped_pvalue)[1:Unmapped_Num]
+              Unmapped_id=Unmapped_id+1
+              Unmapped_Train2=Unmapped_Train[,Unmapped_id]
+              Unmapped_Test2=Unmapped_Test[,Unmapped_id]
+              newtrain=cbind(newtrain,Unmapped_Train2)
+              newtest=cbind(newtest,Unmapped_Test2)
+            }
+            
+            
+            for(z in 1:length(stage2_learners)){
+              classifier_2=stage2_learners[z]
+              a=(i-1)*length(stage2_learners)+z
+              result=baseModel(trainData=newtrain,testData=newtest,predMode ='probability',classifier = classifier_2)
+              testDataY=testDataList[[1]]$label
+              pre=ifelse(result>0.5,1,0)
+              accuracy_class1 <- sum(pre[testDataY == 1] == 1) / sum(testDataY == 1)
+              accuracy_class0 <- sum(pre[testDataY == 0] == 0) / sum(testDataY == 0)
+              Record[a,5]=(accuracy_class1 + accuracy_class0) / 2
+              Record[a,1]=Unmapped_num[i]
+              Record[a,2]=classifier_2
+              Record[a,4]=stats::cor(testDataY,result,method='pearson')
+              Record[a,3]=ROCR::performance(ROCR::prediction(result,testDataY),'auc')@y.values[[1]]
+              Record[a,6]=stage2_cutoff[ii]
+            }
+          }
+          Record2[[ii]]=Record
+          
+          
+          
+        }
+
+        Record2=do.call(rbind,Record2) 
+        final[[xxx]]=Record2
+      }
+      
+      
+      hope=do.call(rbind,final)
+      
+      hope=aggregate(hope[,c(3:5)],by=list(Unmapped_num=hope$Unmapped_num,stage2_cutoff=hope$cutoff,stage2_learner=hope$stage2_learner),mean)
+      hope$stage1_cutoff=stage1_cutoff[luck]
+      #if(verbose)print(hope)
+      #print(paste0('stage1_cutoff : ',cutoff))
+      #print(luck)
+      
+      HOPE[[luck]]=hope
+    }
+    HOPE=do.call(rbind,HOPE)
+    HOPE$stage1_learner=stage1_learner
+    HOPE=HOPE[,c('stage1_learner','stage2_learner','stage1_cutoff','stage2_cutoff','Unmapped_num','AUC','BAC','PCC')]
+    if(verbose)print(HOPE)
+    re[[c1]]=HOPE
+    t2=Sys.time()
+    if(verbose)print(t2-t1)
+    if(verbose)print(' ')
+  }
+  re=do.call(rbind,re)
+  re=re[order(re$AUC,decreasing = T),]
+  return(re)
+}
+
+
+
+
 #' Find suitable parameters for partitioning pathways modules
 #'
 #' @param pathways_matrix A pathway matrix generated by the BioM2( target='pathways') function.
@@ -902,7 +1370,8 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
 #' @param mergeCutHeight dendrogram cut height for module merging. Detail for WGCNA::blockwiseModules()
 #' @param minModuleNum Minimum total number of modules detected
 #' @param power 	soft-thresholding power for network construction. Detail for WGCNA::blockwiseModules()
-#' @param exact   Whether to divide GO pathways more accurately
+#' @param exact   Whether to divide GO pathways more accurately (work when ancestor_anno=NULL)
+#' @param ancestor_anno Annotations for ancestral relationships (like data('GO_Ancestor') )
 #'
 #' @return A list containing recommended parameters
 #' @export
@@ -914,17 +1383,19 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
 #'
 #'
 #'
-FindParaModule=function(pathways_matrix=NULL,control_label=NULL,minModuleSize = seq(10,20,5),mergeCutHeight=seq(0,0.3,0.1),minModuleNum=20,power=NULL,exact=TRUE){
+FindParaModule=function(pathways_matrix=NULL,control_label=0,minModuleSize = seq(10,20,5),mergeCutHeight=seq(0,0.3,0.1),minModuleNum=5,power=NULL,exact=TRUE,ancestor_anno=NULL){
   if('package:WGCNA' %in% search()){
     final=list()
-    if(exact==FALSE){
+    if(exact==FALSE & is.null(ancestor_anno)){
       GO_Ancestor=NA
       data("GO_Ancestor",envir = environment())
       anno=GO_Ancestor
-    }else{
+    }else if(exact==TRUE & is.null(ancestor_anno)){
       GO_Ancestor_exact=NA
       data("GO_Ancestor_exact",envir = environment())
       anno=GO_Ancestor_exact
+    }else{
+      anno=ancestor_anno
     }
     data=as.data.frame(pathways_matrix)
     label=data.frame(ID=rownames(data),label=data$label)
@@ -933,11 +1404,9 @@ FindParaModule=function(pathways_matrix=NULL,control_label=NULL,minModuleSize = 
 
     if(is.null(power)){
       powers = c(c(1:10), seq(from = 12, to=20, by=1))
-      sink(nullfile())
-      sft = pickSoftThreshold(data, powerVector = powers, verbose = 5)
-      sink()
+      sft = pickSoftThreshold(data, powerVector = powers, verbose = 0)
       if(is.na(sft$powerEstimate)){
-        stop('Could not find a proper powers , Please give a power by youself .')
+        return('Could not find a proper powers , Please give a power by youself .')
       }else{
         power=sft$powerEstimate
         message('Find the proper power!')
@@ -954,15 +1423,13 @@ FindParaModule=function(pathways_matrix=NULL,control_label=NULL,minModuleSize = 
         n=length(cutoff)
         result=data.frame(mergeCutHeight=1:n,Number_clusters=1:n,Mean_number_pathways=1:n,Mean_Fraction=1:n,Sd_Fraction=1:n,minModuleSize=1:n)
         for(ii in 1:length(cutoff)){
-          sink(nullfile())
           net = blockwiseModules(data, power = power,
                                  TOMType = "unsigned", minModuleSize = Num_module[xxx],
                                  reassignThreshold = 0, mergeCutHeight = cutoff[ii],
                                  numericLabels = TRUE, pamRespectsDendro = FALSE,
                                  saveTOMs = F,
                                  saveTOMFileBase = "femaleMouseTOM",
-                                 verbose = 3)
-          sink()
+                                 verbose = 0)
           cluster=data.frame(ID=names(net$colors),cluster=net$colors)
           cluster$cluster=cluster$cluster+1
           cluster_list=list()
@@ -1032,7 +1499,8 @@ FindParaModule=function(pathways_matrix=NULL,control_label=NULL,minModuleSize = 
 #' @param MinNumPathways Minimum number of pathways included in the biologically interpretable difference module
 #' @param p.adjust.method p-value adjustment method.(holm", "hochberg", "hommel", "bonferroni", "BH", "BY",
 #   "fdr", "none")
-#' @param exact Whether to divide GO pathways more accurately
+#' @param exact   Whether to divide GO pathways more accurately (work when ancestor_anno=NULL)
+#' @param ancestor_anno Annotations for ancestral relationships (like data('GO_Ancestor') )
 #'
 #' @return A list containing differential module results that are highly biologically interpretable
 #' @export
@@ -1041,16 +1509,18 @@ FindParaModule=function(pathways_matrix=NULL,control_label=NULL,minModuleSize = 
 #' @importFrom utils data
 
 PathwaysModule=function(pathways_matrix=NULL,control_label=NULL,power=NULL,minModuleSize=NULL,mergeCutHeight=NULL,
-                        cutoff=70,MinNumPathways=5,p.adjust.method='fdr',exact=TRUE){
+                        cutoff=70,MinNumPathways=5,p.adjust.method='fdr',exact=TRUE,ancestor_anno=NULL){
   if('package:WGCNA' %in% search()){
-    if(exact==FALSE){
+    if(exact==FALSE & is.null(ancestor_anno)){
       GO_Ancestor=NA
       data("GO_Ancestor",envir = environment())
       anno=GO_Ancestor
-    }else{
+    }else if(exact==TRUE & is.null(ancestor_anno)){
       GO_Ancestor_exact=NA
       data("GO_Ancestor_exact",envir = environment())
       anno=GO_Ancestor_exact
+    }else{
+      anno=ancestor_anno
     }
     final=list()
     data=as.data.frame(pathways_matrix)
@@ -1060,24 +1530,20 @@ PathwaysModule=function(pathways_matrix=NULL,control_label=NULL,power=NULL,minMo
 
     if(is.null(power)){
       powers = c(1:30)
-      sink(nullfile())
-      sft = pickSoftThreshold(data, powerVector = powers, verbose = 5)
-      sink()
+      sft = pickSoftThreshold(data, powerVector = powers, verbose = 0)
       if(is.na(sft$powerEstimate)){
-        stop('Could not find a proper powers , Please give a power by youself .')
+        return('Could not find a proper powers , Please give a power by youself .')
       }else{
         power=sft$powerEstimate
         message('Find the proper power!')
       }
     }
-    sink(nullfile())
     net = blockwiseModules(data, power = power,
                            TOMType = "unsigned", minModuleSize = minModuleSize,
                            reassignThreshold = 0, mergeCutHeight = mergeCutHeight,
                            numericLabels = TRUE, pamRespectsDendro = FALSE,
                            saveTOMs = F,
-                           verbose = 3)
-    sink()
+                           verbose = 0)
     cluster=data.frame(ID=names(net$colors),cluster=net$colors)
     cluster_list=list()
     faction=vector()
@@ -1145,23 +1611,26 @@ PathwaysModule=function(pathways_matrix=NULL,control_label=NULL,power=NULL,minMo
 #'
 #' @param obj Results produced by PathwaysModule()
 #' @param ID_Module ID of the diff module
-#' @param exact Whether to divide GO pathways more accurately
+#' @param exact   Whether to divide GO pathways more accurately (work when ancestor_anno=NULL)
+#' @param ancestor_anno Annotations for ancestral relationships (like data('GO_Ancestor') )
 #'
 #' @return List containing biologically specific information within the module
 #' @export
 #' @importFrom utils data
 #'
 
-ShowModule=function(obj=NULL,ID_Module=NULL,exact=TRUE){
+ShowModule=function(obj=NULL,ID_Module=NULL,exact=TRUE,ancestor_anno=NULL){
   i=ID_Module
-  if(exact==FALSE){
+  if(exact==FALSE & is.null(ancestor_anno)){
     GO_Ancestor=NA
     data("GO_Ancestor",envir = environment())
     anno=GO_Ancestor
-  }else{
+  }else if(exact==TRUE & is.null(ancestor_anno)){
     GO_Ancestor_exact=NA
     data("GO_Ancestor_exact",envir = environment())
     anno=GO_Ancestor_exact
+  }else{
+    anno=ancestor_anno
   }
   cluster=obj$ModuleResult
   final=list()
@@ -1196,7 +1665,8 @@ ShowModule=function(obj=NULL,ID_Module=NULL,exact=TRUE){
 #' @param FindParaModule_obj Results produced by FindParaModule()
 #' @param ShowModule_obj Results produced by ShowModule()
 #' @param PathwaysModule_obj Results produced by PathwaysModule()
-#' @param exact Whether to divide GO pathways more accurately
+#' @param exact   Whether to divide GO pathways more accurately (work when ancestor_anno=NULL)
+#' @param ancestor_anno Annotations for ancestral relationships (like data('GO_Ancestor') )
 #' @param type_text_table Whether to display it in a table
 #' @param text_table_theme The topic of this table.Detail for ggtexttable()
 #' @param n_neighbors The size of local neighborhood (in terms of number of neighboring sample points) used for manifold approximation.
@@ -1241,7 +1711,7 @@ ShowModule=function(obj=NULL,ID_Module=NULL,exact=TRUE){
 #' @importFrom  stats aggregate quantile
 #' @importFrom  ggstatsplot ggbetweenstats
 #'
-VisMultiModule=function(BioM2_pathways_obj=NULL,FindParaModule_obj=NULL,ShowModule_obj=NULL,PathwaysModule_obj=NULL,exact=TRUE,
+VisMultiModule=function(BioM2_pathways_obj=NULL,FindParaModule_obj=NULL,ShowModule_obj=NULL,PathwaysModule_obj=NULL,exact=TRUE,ancestor_anno=NULL,
                   type_text_table=FALSE,text_table_theme=ttheme('mOrange'),
                   volin=FALSE,control_label=0,module=NULL,cols=NULL,
                   n_neighbors = 8,spread=1,min_dist =2,target_weight = 0.5,
@@ -1251,14 +1721,16 @@ VisMultiModule=function(BioM2_pathways_obj=NULL,FindParaModule_obj=NULL,ShowModu
     cols = pal_d3("category20",alpha=alpha)(20)
   }
   if(!is.null(BioM2_pathways_obj)){
-    if(exact==FALSE){
+    if(exact==FALSE & is.null(ancestor_anno)){
       GO_Ancestor=NA
       data("GO_Ancestor",envir = environment())
       anno=GO_Ancestor
-    }else{
+    }else if(exact==TRUE & is.null(ancestor_anno)){
       GO_Ancestor_exact=NA
       data("GO_Ancestor_exact",envir = environment())
       anno=GO_Ancestor_exact
+    }else{
+      anno=ancestor_anno
     }
     if(type_text_table){
       Result=BioM2_pathways_obj$PathwaysResult
@@ -1399,13 +1871,30 @@ VisMultiModule=function(BioM2_pathways_obj=NULL,FindParaModule_obj=NULL,ShowModu
     wordfreqs <- freq(segment)
 
     wordf <- wordfreqs[order(wordfreqs$freq,decreasing = T),]
-    rm=c('of','in','by','for','via','process','regulation','lengthening','to')
-    wordf=wordf[-which(wordf$char %in% rm),]
-    #colors=rep('skyblue', nrow(wordf))
+    rm=c('of','in','by','for','via','process','regulation','lengthening','to','production',
+    'mediated','signaling','1-')
+    if( length(which(wordf$char %in% rm))==0){
+     wordf=wordf
+    }else{
+     wordf=wordf[-which(wordf$char %in% rm),]
+    }
+    num=ceiling(nrow(wordf)/4)
     colors=rep('darkseagreen', nrow(wordf))
-    colors[1:5]='darkorange'
-    my_graph <-wordcloud2(wordf,shape = 'circle',color = colors)
-
+    colors[1:4]='darkorange'
+    #wordf$freq=wordf$freq/max(wordf$freq)
+    if(nrow(wordf)>=40){
+      size=0.7
+    }else if(nrow(wordf)>=20 & nrow(wordf)<=40){
+      size=0.6
+    }else if(nrow(wordf)<20){
+      size=0.8
+    }
+    print(paste0(NAME[xxx],' ',nrow(wordf),' ',size))
+    my_graph <-wordcloud2(wordf,shape = 'circle',color = colors,backgroundColor =ba,
+                          minRotation = -pi/8, maxRotation = pi/8,
+                          shuffle = F,rotateRatio = 1,size=size)
+  
+  
     if(save_pdf){
       my_graph
       saveWidget(my_graph,'tmp.html',selfcontained = F)
@@ -1442,13 +1931,16 @@ VisMultiModule=function(BioM2_pathways_obj=NULL,FindParaModule_obj=NULL,ShowModu
       data=PathwaysModule_obj$Matrix[,PathwaysModule_obj$ModuleResult$ID]
       data=moduleEigengenes(data,PathwaysModule_obj$ModuleResult$cluster)$eigengenes
       data$label=PathwaysModule_obj$Matrix[,'label']
-      data$label=ifelse(data$label==control_label,'Control','Case')
+      #data$label=ifelse(data$label==control_label,'Control','Case')
       colnames(data)[which(colnames(data)==paste0('ME',module))]='y'
       label=NA
       pic=ggstatsplot::ggbetweenstats(
         data=data,
         x = label,
         y = y,
+        centrality.plotting =F,
+        point.args = list(position = ggplot2::position_jitterdodge(dodge.width = 0.6), alpha =
+                            0.6, size = 3, stroke = 0, na.rm = TRUE),
         type = "nonparametric",
         p.adjust.method ='fdr'
       )+ labs(
@@ -1519,7 +2011,7 @@ VisMultiModule=function(BioM2_pathways_obj=NULL,FindParaModule_obj=NULL,ShowModu
                             x='V1',
                             y='V2',
                             size = size,
-                            title ="Highly Biologically Explainable Differential Module",
+                            #title ="Highly Biologically Explainable Differential Module",
                             subtitle="A UMAP visualization",
                             color = "Modules",
                             alpha = alpha,
@@ -1718,7 +2210,7 @@ PlotCorModule=function(PathwaysModule_obj=NULL,
     data  = data,
     type = "nonparametric",
     ggcorrplot.args = list(show.legend =T,pch.cex=10),
-    title    = "Correlalogram for Biological Differences Modules",
+    #title    = "Correlalogram for Biological Differences Modules",
     subtitle = " ",
     caption = " "
   )+theme(
@@ -1776,7 +2268,7 @@ PlotCorModule=function(PathwaysModule_obj=NULL,
 #'
 
 PlotPathNet=function(data=NULL,BioM2_pathways_obj=NULL,FeatureAnno=NULL,pathlistDB=NULL,PathNames=NULL,
-                     cutoff=0.2,num=20){
+                     cutoff=0.2,num=10){
   featureAnno=FeatureAnno[FeatureAnno$ID %in% colnames(data),]
   sub=list()
   i=1
@@ -1786,22 +2278,24 @@ PlotPathNet=function(data=NULL,BioM2_pathways_obj=NULL,FeatureAnno=NULL,pathlist
     COR=stats::cor(cpg_data$label,cpg_data[,-1])
     COR=ifelse(COR>0,COR,-COR)
     names(COR)=cpg_id
-    n=names(COR)[order(COR,decreasing = T)][1:num]
+    len=length(which(COR>cutoff))
+    if(len>10 & len<num){
+      n=names(COR)[which(COR>cutoff)]
+    }else if(len >= num){
+      n=names(COR)[order(COR,decreasing = T)][1:num]
+    }else{
+      n=names(COR)[order(COR,decreasing = T)][1:10]
+    }
     sub[[i]]=data[,n]
     names(sub)[i]=PathNames[i]
   }
   result=list()
-  a=lapply(1:length(PathNames), function(x){
+  a=lapply(1:10, function(x){
     data.frame(
       label=colnames(sub[[x]]),
       value=rep(names(sub)[x],length(sub[[x]]))
     )
   })
-  result$vertices=do.call(rbind,a)
-  comid=unique(result$vertices$label[duplicated(result$vertices$label)])
-  result$vertices=result$vertices[!duplicated(result$vertices$label),]
-  rownames(result$vertices)=result$vertices$label
-  nonid=setdiff(result$vertices$label,comid)
   x=NA
   y=NA
   xend=NA
@@ -1809,6 +2303,12 @@ PlotPathNet=function(data=NULL,BioM2_pathways_obj=NULL,FeatureAnno=NULL,pathlist
   same.conf=NA
   conf=NA
   names(sub)=NULL
+  result$vertices=do.call(rbind,a)
+  comid=unique(result$vertices$label[duplicated(result$vertices$label)])
+  result$vertices=result$vertices[!duplicated(result$vertices$label),]
+  rownames(result$vertices)=result$vertices$label
+  nonid=setdiff(result$vertices$label,comid)
+  
   dd=do.call(cbind,sub)
   dd=dd[,!duplicated(colnames(dd))]
   cor_matrix <- stats::cor(dd)
@@ -1832,9 +2332,12 @@ PlotPathNet=function(data=NULL,BioM2_pathways_obj=NULL,FeatureAnno=NULL,pathlist
   df$Correlation=ifelse(df$Correlation>0,df$Correlation,-df$Correlation)
   df=df[df$Correlation>0,]
   
-  DF=df[df$Correlation> cutoff,]
+  DF=df[df$Correlation> 0.1,]
   DF$same.conf=ifelse(result$vertices[DF$from,"value"]==result$vertices[DF$to,"value"],1,0)
   DF1=DF[DF$same.conf==1,]
+  
+  
+  
   
   pname=BioM2_pathways_obj$PathwaysResult$id[1:10]
   cor_matrix <- stats::cor(BioM2_pathways_obj$PathwaysMatrix[,pname])
@@ -1898,6 +2401,7 @@ PlotPathNet=function(data=NULL,BioM2_pathways_obj=NULL,FeatureAnno=NULL,pathlist
       alpha = 0.2,
       show.legend = F
     )+scale_fill_brewer(palette = 'Paired')+xlim(-0.05,1.05)+ylim(-0.05,1.05)
+  
   return(pic)
   
 }
