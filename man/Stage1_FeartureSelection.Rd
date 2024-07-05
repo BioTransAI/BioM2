@@ -10,6 +10,7 @@ Stage1_FeartureSelection(
   cutoff = NULL,
   featureAnno = NULL,
   pathlistDB_sub = NULL,
+  MinfeatureNum_pathways = 10,
   cores = 1,
   verbose = TRUE
 )
@@ -30,6 +31,9 @@ mapping. It must have at least two columns named 'ID' and 'entrezID'.
 \item{pathlistDB_sub}{A list of pathways with pathway IDs and their
 corresponding genes ('entrezID' is used).
 For details, please refer to ( data("GO2ALLEGS_BP") )}
+
+\item{MinfeatureNum_pathways}{The minimal defined pathway size after mapping your
+own data to pathlistDB(KEGG database/GO database).}
 
 \item{cores}{The number of cores used for computation.}
 

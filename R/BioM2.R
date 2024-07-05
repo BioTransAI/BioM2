@@ -153,6 +153,8 @@ baseModel=function ( trainData, testData, predMode = "probability",
 #' @param pathlistDB_sub A list of pathways with pathway IDs and their
 #' corresponding genes ('entrezID' is used).
 #' For details, please refer to ( data("GO2ALLEGS_BP") )
+#' @param MinfeatureNum_pathways The minimal defined pathway size after mapping your
+#' own data to pathlistDB(KEGG database/GO database).
 #' @param cores The number of cores used for computation.
 #' @param verbose Whether to print running process information to the console
 #'
@@ -171,7 +173,7 @@ baseModel=function ( trainData, testData, predMode = "probability",
 #'                  featureAnno=MethylAnno,pathlistDB_sub=GO2ALLEGS_BP,cores=1)
 #'
 Stage1_FeartureSelection=function(Stage1_FeartureSelection_Method='cor',data=NULL,cutoff=NULL,
-                                 featureAnno=NULL,pathlistDB_sub=NULL,cores=1,verbose=TRUE){
+                                 featureAnno=NULL,pathlistDB_sub=NULL,MinfeatureNum_pathways=10,cores=1,verbose=TRUE){
   if(Sys.info()[1]=="Windows"){
     cores=1
   }
@@ -184,13 +186,14 @@ Stage1_FeartureSelection=function(Stage1_FeartureSelection_Method='cor',data=NUL
     Cor_names=names(Cor)
     Cor_cutoff=Cor[which(Cor>cutoff)]
     Cor_cutoff_names=names(Cor_cutoff)
+    MinfeatureNum_pathways2=MinfeatureNum_pathways+1
     feature_pathways=mclapply(1:length(pathlistDB_sub),function(x){
       id=c('label',featureAnno$ID[which(featureAnno$entrezID %in% pathlistDB_sub[[x]])])
-      if(length(id)>10){
+      if(length(id)>MinfeatureNum_pathways){
         id2=id[which(id %in% Cor_cutoff_names)]
-        if(length(id2)<11){
+        if(length(id2)<MinfeatureNum_pathways2){
           a=Cor[id]
-          id2=names(a)[order(a,decreasing = T)[1:11]]
+          id2=names(a)[order(a,decreasing = T)[1:MinfeatureNum_pathways2]]
           return(id2)
         }else{
           return(id2)
@@ -211,13 +214,14 @@ Stage1_FeartureSelection=function(Stage1_FeartureSelection_Method='cor',data=NUL
     Cor_names=names(Cor)
     Cor_cutoff=Cor[which(Cor<cutoff)]
     Cor_cutoff_names=names(Cor_cutoff)
+    MinfeatureNum_pathways2= MinfeatureNum_pathways+1
     feature_pathways=mclapply(1:length(pathlistDB_sub),function(x){
       id=c('label',featureAnno$ID[which(featureAnno$entrezID %in% pathlistDB_sub[[x]])])
-      if(length(id)>10){
+      if(length(id)> MinfeatureNum_pathways){
         id2=id[which(id %in% Cor_cutoff_names)]
-        if(length(id2)<11){
+        if(length(id2)< MinfeatureNum_pathways2){
           a=Cor[id]
-          id2=names(a)[order(a,decreasing = T)[1:11]]
+          id2=names(a)[order(a,decreasing = F)[1:MinfeatureNum_pathways2]]
           return(id2)
         }else{
           return(id2)
@@ -271,7 +275,7 @@ Stage1_FeartureSelection=function(Stage1_FeartureSelection_Method='cor',data=NUL
         id2=id[which(id %in% Cor_cutoff_names)]
         if(length(id2)<11){
           a=Cor[id]
-          id2=names(a)[order(a,decreasing = T)[1:11]]
+          id2=names(a)[order(a,decreasing = F)[1:11]]
           return(id2)
         }else{
           return(id2)
@@ -579,7 +583,7 @@ HybaseModel=function(data=NULL,pathlistDB=NULL,FeatureAnno=NULL,resampling=NULL,
       
 
       feature_pathways=Stage1_FeartureSelection(Stage1_FeartureSelection_Method=Stage1_FeartureSelection_Method,data=trainData,cutoff=cutoff,
-                                                featureAnno=featureAnno,pathlistDB_sub=pathlistDB_sub,cores=cores,verbose=verbose)
+                                                featureAnno=featureAnno,pathlistDB_sub=pathlistDB_sub,MinfeatureNum_pathways=MinfeatureNum_pathways,cores=cores,verbose=verbose)
       
       lens=sapply(1:length(feature_pathways),function(x) length(feature_pathways[[x]]))
       
@@ -632,8 +636,10 @@ HybaseModel=function(data=NULL,pathlistDB=NULL,FeatureAnno=NULL,resampling=NULL,
       
 
       
+      if(is.null(classifier2)){
+        classifier2=classifier
+      }
       
-      classifier2=classifier
       
       result=baseModel(trainData=newtrain,testData=newtest,predMode ='probability',classifier = classifier2)
       prediction_part=data.frame(sample=rownames(testData),prediction=result)
@@ -642,7 +648,7 @@ HybaseModel=function(data=NULL,pathlistDB=NULL,FeatureAnno=NULL,resampling=NULL,
       testDataY=testDataList[[1]]$label
       pre=ifelse(result>0.5,1,0)
       Record[xxx,1]=xxx
-      Record[xxx,2]=classifier2
+      Record[xxx,2]=ifelse(as.character(classifier2),classifier2,classifier2$packages[[3]])
       Record[xxx,5]=stats::cor(testDataY,result,method='pearson')
       Record[xxx,3]=ROCR::performance(ROCR::prediction(result,testDataY),'auc')@y.values[[1]]
       testDataY=as.factor(testDataY)
@@ -797,7 +803,7 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
 
       if(verbose)print('Step2: FeartureSelection-features')
       feature_pathways=Stage1_FeartureSelection(Stage1_FeartureSelection_Method=Stage1_FeartureSelection_Method,data=trainData,cutoff=cutoff,
-                                               featureAnno=featureAnno,pathlistDB_sub=pathlistDB_sub,cores=cores,verbose=verbose)
+                                               featureAnno=featureAnno,pathlistDB_sub=pathlistDB_sub,MinfeatureNum_pathways=MinfeatureNum_pathways,cores=cores,verbose=verbose)
 
       lens=sapply(1:length(feature_pathways),function(x) length(feature_pathways[[x]]))
 
@@ -885,7 +891,7 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
         testDataY=testDataList[[1]]$label
         pre=ifelse(result>0.5,1,0)
         Record[xxx,1]=xxx
-        Record[xxx,2]=classifier2
+        Record[xxx,2]=ifelse(as.character(classifier2),classifier2,classifier2$packages[[3]])
         Record[xxx,5]=stats::cor(testDataY,result,method='pearson')
         Record[xxx,3]=ROCR::performance(ROCR::prediction(result,testDataY),'auc')@y.values[[1]]
         accuracy_class1 <- sum(pre[testDataY == 1] == 1) / sum(testDataY == 1)
@@ -960,7 +966,7 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
 
     if(verbose)print('Step2: FeartureSelection-features')
     feature_pathways=Stage1_FeartureSelection(Stage1_FeartureSelection_Method=Stage1_FeartureSelection_Method,data=trainData,cutoff=cutoff,
-                                             featureAnno=featureAnno,pathlistDB_sub=pathlistDB_sub,cores=cores,verbose=verbose)
+                                             featureAnno=featureAnno,pathlistDB_sub=pathlistDB_sub,MinfeatureNum_pathways=MinfeatureNum_pathways,cores=cores,verbose=verbose)
 
     lens=sapply(1:length(feature_pathways),function(x) length(feature_pathways[[x]]))
 
@@ -1071,7 +1077,7 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
       predict=data.frame(sample=rownames(testData),prediction=result)
       testDataY=testDataList[[1]]$label
       pre=ifelse(result>0.5,1,0)
-      Record[1,1]=classifier
+      Record[1,1]=ifelse(as.character(classifier2),classifier2,classifier2$packages[[3]])
       Record[1,4]=stats::cor(testDataY,result,method='pearson')
       Record[1,2]=ROCR::performance(ROCR::prediction(result,testDataY),'auc')@y.values[[1]]
       accuracy_class1 <- sum(pre[testDataY == 1] == 1) / sum(testDataY == 1)
@@ -1318,7 +1324,7 @@ HyBioM2=function(TrainData=NULL,pathlistDB=NULL,FeatureAnno=NULL,resampling=NULL
               accuracy_class0 <- sum(pre[testDataY == 0] == 0) / sum(testDataY == 0)
               Record[a,5]=(accuracy_class1 + accuracy_class0) / 2
               Record[a,1]=Unmapped_num[i]
-              Record[a,2]=classifier_2
+              Record[a,2]=ifelse(as.character(classifier_2),classifier_2,classifier_2$packages[[3]])
               Record[a,4]=stats::cor(testDataY,result,method='pearson')
               Record[a,3]=ROCR::performance(ROCR::prediction(result,testDataY),'auc')@y.values[[1]]
               Record[a,6]=stage2_cutoff[ii]
