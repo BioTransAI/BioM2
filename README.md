@@ -197,9 +197,9 @@ classifier2=NULL
 
 # A data frame contains hyperparameter results
 result=HyBioM2(TrainData=data,pathlistDB=pathlistDB,FeatureAnno=FeatureAnno,resampling=NULL,nfolds=2,classifier=classifier1,
-           PathwaySizeUp=200,PathwaySizeDown=150,MinfeatureNum_pathways=10,
+           PathwaySizeUp=200,PathwaySizeDown=10,MinfeatureNum_pathways=10,
            Add_FeartureSelection_Method='wilcox.test',Unmapped_num=Unmapped_num,
-           Inner_CV=F,inner_folds=10,
+           Inner_CV=T,inner_folds=10,
            Stage1_FeartureSelection_Method='cor',stage1_cutoff=stage1_cutoff,
            Stage2_FeartureSelection_Method='RemoveHighcor',stage2_cutoff=stage2_cutoff,
            classifier2=NULL,cores=20,verbose=TRUE)
