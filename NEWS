@@ -1,3 +1,9 @@
+Version 1.0.9
+=============
+- Fix a bug in HyBioM2()
+
+
+
 Version 1.0.8
 =============
 -Added HyBioM2() function : BioM2 Hyperparametric Combination
