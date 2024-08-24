@@ -582,6 +582,7 @@ PlotCorModule(PathwaysModule_obj=Modules)
 # Citation
 - NIPS ML4H submission: Chen, J. and Schwarz, E., 2017. BioMM: Biologically-informed Multi-stage Machine learning for identification of epigenetic fingerprints. arXiv preprint arXiv:1712.00336.
 - Chen, Junfang, et al. "Association of a reproducible epigenetic risk profile for schizophrenia with brain methylation and function." JAMA psychiatry 77.6 (2020): 628-636.
+- Zhang, Shunjie et al. “BioM2: biologically informed multi-stage machine learning for phenotype prediction using omics data.” Briefings in bioinformatics vol. 25,5 (2024): bbae384. doi:10.1093/bib/bbae384
 
 
 
