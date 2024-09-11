@@ -56,8 +56,7 @@ mapping. It must have at least two columns named 'ID' and 'entrezID'.
 
 \item{classifier}{Learners in mlr3}
 
-\item{predMode}{The prediction mode. Available options are
-c('probability', 'classification').}
+\item{predMode}{The prediction mode. Currently only supports 'probability' for binary classification tasks.}
 
 \item{PathwaySizeUp}{The upper-bound of the number of genes in each
 biological pathways.}

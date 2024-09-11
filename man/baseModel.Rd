@@ -22,8 +22,7 @@ is the label or the output. For binary classes,
 is the label or the output. For binary classes,
 0 and 1 are used to indicate the class member.}
 
-\item{predMode}{The prediction mode. Available options are
-c('probability', 'classification').}
+\item{predMode}{The prediction mode.Currently only supports 'probability' for binary classification tasks.}
 
 \item{classifier}{Learners in mlr3}
 

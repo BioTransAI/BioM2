@@ -302,7 +302,7 @@ Stage1_FeartureSelection=function(Stage1_FeartureSelection_Method='cor',data=NUL
 #' Stage 2 Fearture Selection
 #'
 #' @param Stage2_FeartureSelection_Method Feature selection methods. Available options are
-#' c(NULL, 'cor', 'wilcox.test', 'RemoveHighcor', 'RemoveLinear').
+#' c(NULL, 'cor', 'wilcox.test','cor_rank','wilcox.test_rank','RemoveHighcor', 'RemoveLinear').
 #' @param data The input training dataset. The first column is the label.
 #' @param label The label of dataset
 #' @param cutoff The cutoff used for feature selection threshold. It can be any value
@@ -329,31 +329,112 @@ Stage2_FeartureSelection=function(Stage2_FeartureSelection_Method='RemoveHighcor
   if(preMode=='probability' | preMode=='classification'){
 
     if(Stage2_FeartureSelection_Method=='cor'){
-      up=ifelse(classifier=='lda',0.999,100)
-      corr=sapply(1:length(data),function(x) stats::cor(data[[x]],label,method='pearson'))
-
-      if(verbose)print(paste0('     |> Final number of pathways >>>',length(which(corr>cutoff &  corr < up)),'......Min correlation of pathways>>>',round(min(corr[which(corr > cutoff & corr < up)]),digits = 3)))
-      index=which(corr>cutoff & corr < up )
-      return(index)
-    }else if(Stage2_FeartureSelection_Method=='wilcox.test'){
-
-      data=do.call(cbind,data)
-      data=cbind(label=label,data)
-      data=as.data.frame(data)
-
-      data_0=data[which(data$label==unique(data$label)[1]),]
-      data_1=data[which(data$label==unique(data$label)[2]),]
-      pvalue=unlist(mclapply(2:ncol(data),function(x) wilcox.test(data_0[,x],data_1[,x])$p.value,mc.cores=60))
-      if(cutoff < length(pvalue)){
-        index=order(pvalue)[1:cutoff]
+      if(!is.null(label)){
+        up=ifelse(classifier=='lda',0.999,100)
+        corr=sapply(1:length(data),function(x) stats::cor(data[[x]],label,method='pearson'))
+        
+        if(verbose)print(paste0('     |> Final number of pathways >>>',length(which(corr>cutoff &  corr < up)),'......Min correlation of pathways>>>',round(min(corr[which(corr > cutoff & corr < up)]),digits = 3)))
+        index=which(corr>cutoff & corr < up )
+        return(index)
       }else{
-        index=order(pvalue)
+        data=do.call(rbind,data)
+        label=data[,1]
+        corr=sapply(2:ncol(data),function(x) stats::cor(data[,x],label,method='pearson'))
+        index=which(corr > cutoff)
+        if(verbose)print(paste0('     |> Final number of pathways >>> ',length(index),'......Min correlation of pathways>>>',round(min(corr[index]),digits = 3)))
+        index=index+1
+        return(index)
       }
+     
+    }else if(Stage2_FeartureSelection_Method=='cor_rank'){
+      if(!is.null(label)){
+        up=ifelse(classifier=='lda',0.999,100)
+        corr=sapply(1:length(data),function(x) stats::cor(data[[x]],label,method='pearson'))
+        if(cutoff < length(corr)){
+          index=order(corr,decreasing = T)[1:cutoff]
+        }else{
+          index=order(corr,decreasing = T)
+        }
+        #index=which(pvalue < cutoff)
+        if(verbose)print(paste0('     |> Final number of pathways >>>',length(index),'......Min correlation of pathways>>>',round(min(corr[index]),digits = 3)))
+        return(index)
 
-      #index=which(pvalue < cutoff)
-      if(verbose)print(paste0('     |> Final number of pathways >>>',length(index),'......Max p-value of pathways>>>',round(max(pvalue[index]),digits = 3)))
-      return(index)
+      }else{
+        data=do.call(rbind,data)
+        label=data[,1]
+        corr=sapply(2:ncol(data),function(x) stats::cor(data[,x],label,method='pearson'))
+        if(cutoff < length(corr)){
+          index=order(corr,decreasing = T)[1:cutoff]
+        }else{
+          index=order(corr,decreasing = T)
+        }
+        if(verbose)print(paste0('     |> Final number of pathways >>> ',length(index),'......Min correlation of pathways>>>',round(min(corr[index]),digits = 3)))
+        index=index+1
+        
+      }
+      
+      
+    }else if(Stage2_FeartureSelection_Method=='wilcox.test'){
+      if(!is.null(label)){
+        data=do.call(cbind,data)
+        data=cbind(label=label,data)
+        data=as.data.frame(data)
+        
+        data_0=data[which(data$label==unique(data$label)[1]),]
+        data_1=data[which(data$label==unique(data$label)[2]),]
+        pvalue=unlist(mclapply(2:ncol(data),function(x) wilcox.test(data_0[,x],data_1[,x])$p.value,mc.cores=cores))
+        index=which(pvalue < cutoff)
+        if(verbose)print(paste0('     |> Final number of pathways >>>',length(index),'......Max p-value of pathways>>>',round(max(pvalue[index]),digits = 3)))
+        return(index)
+      }else{
+        data=do.call(rbind,data)
+        data=as.data.frame(data)
+        data_0=data[which(data$label==unique(data$label)[1]),]
+        data_1=data[which(data$label==unique(data$label)[2]),]
+        pvalue=unlist(mclapply(2:ncol(data),function(x) wilcox.test(data_0[,x],data_1[,x])$p.value,mc.cores=cores))
+        index=which(pvalue < cutoff)
+        if(verbose)print(paste0('     |> Final number of pathways >>>',length(index),'......Max p-value of pathways>>>',round(max(pvalue[index]),digits = 3)))
+        index=index+1
+        return(index)
+        
+      }
+      
 
+    }else if(Stage2_FeartureSelection_Method=='wilcox.test_rank'){
+      if(!is.null(label)){
+        data=do.call(cbind,data)
+        data=cbind(label=label,data)
+        data=as.data.frame(data)
+        
+        data_0=data[which(data$label==unique(data$label)[1]),]
+        data_1=data[which(data$label==unique(data$label)[2]),]
+        pvalue=unlist(mclapply(2:ncol(data),function(x) wilcox.test(data_0[,x],data_1[,x])$p.value,mc.cores=cores))
+        if(cutoff < length(pvalue)){
+          index=order(pvalue)[1:cutoff]
+        }else{
+          index=order(pvalue)
+        }
+        #index=which(pvalue < cutoff)
+        if(verbose)print(paste0('     |> Final number of pathways >>>',length(index),'......Max p-value of pathways>>>',round(max(pvalue[index]),digits = 3)))
+        return(index)
+      }else{
+        data=do.call(rbind,data)
+        data=as.data.frame(data)
+        data_0=data[which(data$label==unique(data$label)[1]),]
+        data_1=data[which(data$label==unique(data$label)[2]),]
+        pvalue=unlist(mclapply(2:ncol(data),function(x) wilcox.test(data_0[,x],data_1[,x])$p.value,mc.cores=cores))
+        if(cutoff < length(pvalue)){
+          index=order(pvalue)[1:cutoff]
+        }else{
+          index=order(pvalue)
+        }
+        #index=which(pvalue < cutoff)
+        if(verbose)print(paste0('     |> Final number of pathways >>>',length(index),'......Max p-value of pathways>>>',round(max(pvalue[index]),digits = 3)))
+        index=index+1
+        return(index)
+        
+      }
+      
     }else if(Stage2_FeartureSelection_Method=='RemoveHighcor'){
       if(!is.null(label)){
         corr=sapply(1:length(data),function(x) stats::cor(data[[x]],label,method='pearson'))

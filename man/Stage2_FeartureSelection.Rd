@@ -17,7 +17,7 @@ Stage2_FeartureSelection(
 }
 \arguments{
 \item{Stage2_FeartureSelection_Method}{Feature selection methods. Available options are
-c(NULL, 'cor', 'wilcox.test', 'RemoveHighcor', 'RemoveLinear').}
+c(NULL, 'cor', 'wilcox.test','cor_rank','wilcox.test_rank','RemoveHighcor', 'RemoveLinear').}
 
 \item{data}{The input training dataset. The first column is the label.}
 
@@ -26,8 +26,7 @@ c(NULL, 'cor', 'wilcox.test', 'RemoveHighcor', 'RemoveLinear').}
 \item{cutoff}{The cutoff used for feature selection threshold. It can be any value
 between 0 and 1.}
 
-\item{preMode}{The prediction mode. Available options are
-c('probability', 'classification').}
+\item{preMode}{The prediction mode. "Currently only supports 'probability' for binary classification tasks."}
 
 \item{classifier}{Learners in mlr3}
 
