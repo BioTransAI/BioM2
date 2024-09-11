@@ -370,7 +370,7 @@ Stage2_FeartureSelection=function(Stage2_FeartureSelection_Method='RemoveHighcor
         }
         if(verbose)print(paste0('     |> Final number of pathways >>> ',length(index),'......Min correlation of pathways>>>',round(min(corr[index]),digits = 3)))
         index=index+1
-        
+        return(index)
       }
       
       
