@@ -670,7 +670,9 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
   if(Sys.info()[1]=="Windows"){
     cores=1
   }
-
+  if(is.null(names(pathlistDB)) | sum(is.na(names(pathlistDB)))>0 ){
+    stop("The name in pathlistDB cannot be NA or NULL.")
+  }
   prediction=list()
   FeatureAnno$ID=gsub('[\\.\\_\\-]','',FeatureAnno$ID)
   colnames(TrainData)=gsub('[\\.\\_\\-]','',colnames(TrainData))
@@ -834,7 +836,10 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
           GO_anno=GO_Ancestor[,1:2]
           GO_anno=GO_anno[-which(duplicated(GO_anno)),]
           colnames(GO_anno)=c('id','term')
-          pathways_result=merge(pathways_result,GO_anno,by='id')
+          pathways_result2=merge(pathways_result,GO_anno,by='id')
+          id=which(pathways_result$id %in% setdiff(pathways_result$id,pathways_result2$id))
+          pathways_result$term=rep('',nrow(pathways_result))
+          pathways_result=rbind(pathways_result2,pathways_result[id,])
           pathways_result=pathways_result[order(pathways_result$cor,decreasing = TRUE),]
           if(verbose)print(head(pathways_result))
           final=list('PathwaysMatrix'= matrix_pathways,'PathwaysResult'= pathways_result)
@@ -922,6 +927,9 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
       GO_anno=GO_anno[-which(duplicated(GO_anno)),]
       colnames(GO_anno)=c('id','term')
       pathways_result=merge(pathways_result,GO_anno,by='id')
+      id=which(pathways_result$id %in% setdiff(pathways_result$id,pathways_result2$id))
+      pathways_result$term=rep('',nrow(pathways_result))
+      pathways_result=rbind(pathways_result2,pathways_result[id,])
       pathways_result=pathways_result[order(pathways_result$cor,decreasing = TRUE),]
       if(verbose)print(head(pathways_result))
       final=list('PathwaysMatrix'= matrix_pathways,'PathwaysResult'= pathways_result)
