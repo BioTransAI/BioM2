@@ -118,7 +118,7 @@ result=BioM2 (  TrainData = data , TestData = NULL ,                            
                 pathlistDB = pathlistDB ,                                          ## ==>> [Pathway annotation data]
                 FeatureAnno = FeatureAnno ,                                        ## ==>> [Feature annotation data]
                 classifier = 'liblinear' , nfolds = 5 ,                            ## Choose your learner( use "lrns()" ) , currently only cross-validation is supported
-                Inner_CV = FALSE , inner_folds=10 ,                                ## Whether to use nested resampling
+                Inner_CV = TRUE , inner_folds=5 ,                                  ## Whether to use nested resampling
                 Stage1_FeartureSelection_Method = "cor", cutoff=0,                 ## Stage-1 feature selection method and cutoff
                 Stage2_FeartureSelection_Method = "RemoveHighcor",cutoff2 = 0.80,  ## Stage-2 feature selection method and cutoff
                 Add_FeartureSelection_Method = "wilcox.test", Unmapped_num = 0,    ## Unmapped feature selection method and cutoff
