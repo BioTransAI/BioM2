@@ -26,7 +26,7 @@ is the label or the output. For binary classes,
 
 \item{classifier}{Learners in mlr3}
 
-\item{paramlist}{Learner parameters}
+\item{paramlist}{Learner parameters search spaces}
 
 \item{inner_folds}{k-fold cross validation ( Only supported when testData = NULL )}
 }

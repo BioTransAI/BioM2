@@ -12,6 +12,7 @@ BioM2(
   resampling = NULL,
   nfolds = 5,
   classifier = "liblinear",
+  paramlist = NULL,
   predMode = "probability",
   PathwaySizeUp = 200,
   PathwaySizeDown = 20,
@@ -55,6 +56,8 @@ mapping. It must have at least two columns named 'ID' and 'entrezID'.
 \item{nfolds}{k-fold cross validation ( Only supported when TestData = NULL )}
 
 \item{classifier}{Learners in mlr3}
+
+\item{paramlist}{Learner parameters search spaces}
 
 \item{predMode}{The prediction mode. Currently only supports 'probability' for binary classification tasks.}
 
