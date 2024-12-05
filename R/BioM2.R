@@ -114,10 +114,15 @@ baseModel=function ( trainData, testData, predMode = "probability",
       stop("The first column of the 'trainData' must be the 'label'!")
     }
     if( predMode == 'probability'){
-      classifier=paste0('classif.',classifier,'')
+      if(is.character(classifier)){
+        classifier=paste0('classif.',classifier,'')
+        model=lrn(classifier,predict_type = "prob")
+      }else{
+        model=classifier
+      }
+      
       trainData[,1]=as.factor(trainData[,1])
       trainData=as_task_classif(trainData,target='label')
-      model=lrn(classifier,predict_type = "prob")
       #set.seed(seed)
       sink(nullfile())
       rr=resample(trainData, model, rsmp("cv", folds = inner_folds))$prediction()
@@ -853,7 +858,7 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
           return(final)
         }else{
           T2=Sys.time()
-          if(verbose)print(paste0('{|>>>=====','Learner: ',classifier,'---Performance Metric---==>>','AUC:',round(mean(Record$AUC),digits = 3),' ','ACC:',round(mean(Record$ACC),digits = 3),' ','PCCs:',round(mean(Record$PCCs),digits = 3),'======<<<|}'))
+          if(verbose)print(paste0('{|>>>=====','Learner: ',ifelse(is.character(classifier),classifier,classifier$id),'---Performance Metric---==>>','AUC:',round(mean(Record$AUC),digits = 3),' ','ACC:',round(mean(Record$ACC),digits = 3),' ','PCCs:',round(mean(Record$PCCs),digits = 3),'======<<<|}'))
           if(verbose)print(Record)
           final=list('Prediction'=prediction,'Metric'=Record,'TotalMetric'=c('AUC'=round(mean(Record$AUC),digits = 3),'ACC'=round(mean(Record$ACC),digits = 3),'PCCs'=round(mean(Record$PCCs),digits = 3)))
           if(verbose)print(T2-T1)
