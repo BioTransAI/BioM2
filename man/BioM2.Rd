@@ -31,6 +31,7 @@ BioM2(
   p.adjust.method = "fdr",
   save_pathways_matrix = FALSE,
   cores = 1,
+  seed = 10,
   verbose = TRUE
 )
 }
@@ -100,6 +101,8 @@ Available options are c('predict', 'pathways').}
 \item{save_pathways_matrix}{Whether to output the path matrix file}
 
 \item{cores}{The number of cores used for computation.}
+
+\item{seed}{Cross-Validation seed}
 
 \item{verbose}{Whether to print running process information to the console}
 }

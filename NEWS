@@ -1,6 +1,15 @@
+Version 1.1.3
+=============
+- Import seed
+
+Version 1.1.2
+=============
+- Do not import Package(jiebaR)
+
+
 Version 1.1.0
 =============
-- Fix a bug（Stage2_FeartureSelection）
+- Fix a bug(Stage2_FeartureSelection)
 
 
 

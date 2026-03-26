@@ -13,6 +13,7 @@
 #' @param classifier  Learners in mlr3
 #' @param paramlist   Learner parameters search spaces
 #' @param inner_folds k-fold cross validation ( Only supported when testData = NULL )
+#' @param seed Cross-Validation seed
 #'
 #' @return The predicted output for the test data.
 #' @import mlr3verse
@@ -32,7 +33,8 @@
 #'
 #'
 baseModel=function ( trainData, testData, predMode = "probability",
-                     classifier,paramlist=NULL, inner_folds=10){
+                     classifier,paramlist=NULL, inner_folds=10,seed=10){
+  set.seed(seed)
   predMode=match.arg(predMode)
   if(!is.null(testData)){
     if (colnames(trainData)[1] != "label") {
@@ -123,7 +125,7 @@ baseModel=function ( trainData, testData, predMode = "probability",
       
       trainData[,1]=as.factor(trainData[,1])
       trainData=as_task_classif(trainData,target='label')
-      #set.seed(seed)
+      set.seed(seed)
       sink(nullfile())
       rr=resample(trainData, model, rsmp("cv", folds = inner_folds))$prediction()
       sink()
@@ -134,7 +136,7 @@ baseModel=function ( trainData, testData, predMode = "probability",
       classifier=paste0('regr.',classifier,'')
       trainData=as_task_regr(trainData,target='label')
       model=lrn(classifier)
-      #set.seed(seed)
+      set.seed(seed)
       sink(nullfile())
       rr=resample(trainData, model, rsmp("cv", folds = inner_folds))$prediction()
       sink()
@@ -390,7 +392,8 @@ Stage2_FeartureSelection=function(Stage2_FeartureSelection_Method='RemoveHighcor
         data_0=data[which(data$label==unique(data$label)[1]),]
         data_1=data[which(data$label==unique(data$label)[2]),]
         pvalue=unlist(mclapply(2:ncol(data),function(x) wilcox.test(data_0[,x],data_1[,x])$p.value,mc.cores=cores))
-        index=which(pvalue < cutoff)
+        corr=stats::cor(data$label,data[,-1])
+        index=which(pvalue < cutoff & corr>0)
         if(verbose)print(paste0('     |> Final number of pathways >>>',length(index),'......Max p-value of pathways>>>',round(max(pvalue[index]),digits = 3)))
         return(index)
       }else{
@@ -399,7 +402,8 @@ Stage2_FeartureSelection=function(Stage2_FeartureSelection_Method='RemoveHighcor
         data_0=data[which(data$label==unique(data$label)[1]),]
         data_1=data[which(data$label==unique(data$label)[2]),]
         pvalue=unlist(mclapply(2:ncol(data),function(x) wilcox.test(data_0[,x],data_1[,x])$p.value,mc.cores=cores))
-        index=which(pvalue < cutoff)
+        corr=stats::cor(data$label,data[,-1])
+        index=which(pvalue < cutoff & corr>0)
         if(verbose)print(paste0('     |> Final number of pathways >>>',length(index),'......Max p-value of pathways>>>',round(max(pvalue[index]),digits = 3)))
         index=index+1
         return(index)
@@ -416,10 +420,17 @@ Stage2_FeartureSelection=function(Stage2_FeartureSelection_Method='RemoveHighcor
         data_0=data[which(data$label==unique(data$label)[1]),]
         data_1=data[which(data$label==unique(data$label)[2]),]
         pvalue=unlist(mclapply(2:ncol(data),function(x) wilcox.test(data_0[,x],data_1[,x])$p.value,mc.cores=cores))
-        if(cutoff < length(pvalue)){
-          index=order(pvalue)[1:cutoff]
+        corr=stats::cor(data$label,data[,-1])
+        if(cutoff < length(which(corr>0))){
+          index=order(pvalue)
+          unindex=which(corr<0)
+          index=setdiff(index,unindex)
+          index=index[1:cutoff]
+          
         }else{
           index=order(pvalue)
+          unindex=which(corr<0)
+          index=setdiff(index,unindex)
         }
         #index=which(pvalue < cutoff)
         if(verbose)print(paste0('     |> Final number of pathways >>>',length(index),'......Max p-value of pathways>>>',round(max(pvalue[index]),digits = 3)))
@@ -430,12 +441,18 @@ Stage2_FeartureSelection=function(Stage2_FeartureSelection_Method='RemoveHighcor
         data_0=data[which(data$label==unique(data$label)[1]),]
         data_1=data[which(data$label==unique(data$label)[2]),]
         pvalue=unlist(mclapply(2:ncol(data),function(x) wilcox.test(data_0[,x],data_1[,x])$p.value,mc.cores=cores))
-        if(cutoff < length(pvalue)){
-          index=order(pvalue)[1:cutoff]
+        corr=stats::cor(data$label,data[,-1])
+        if(cutoff < length(which(corr>0))){
+          index=order(pvalue)
+          unindex=which(corr<0)
+          index=setdiff(index,unindex)
+          index=index[1:cutoff]
+          
         }else{
           index=order(pvalue)
+          unindex=which(corr<0)
+          index=setdiff(index,unindex)
         }
-        #index=which(pvalue < cutoff)
         if(verbose)print(paste0('     |> Final number of pathways >>>',length(index),'......Max p-value of pathways>>>',round(max(pvalue[index]),digits = 3)))
         index=index+1
         return(index)
@@ -628,6 +645,7 @@ AddUnmapped=function(train=NULL,test=NULL,Unmapped_num=NULL,Add_FeartureSelectio
 #   "fdr", "none")
 #' @param save_pathways_matrix Whether to output the path matrix file
 #' @param cores The number of cores used for computation.
+#' @param seed Cross-Validation seed
 #' @param verbose Whether to print running process information to the console
 #'
 #' @return A list containing prediction results and prediction result evaluation
@@ -673,7 +691,7 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
                 Inner_CV=TRUE,inner_folds=10,
                 Stage1_FeartureSelection_Method='cor',cutoff=0.3,
                 Stage2_FeartureSelection_Method='RemoveHighcor',cutoff2=0.95,classifier2=NULL,
-                target='predict',p.adjust.method='fdr',save_pathways_matrix=FALSE,cores=1,verbose=TRUE){
+                target='predict',p.adjust.method='fdr',save_pathways_matrix=FALSE,cores=1,seed=10,verbose=TRUE){
   if(verbose)print('===================BioM2==================')
 
   if(Sys.info()[1]=="Windows"){
@@ -735,7 +753,8 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
       #(PredictPathways)
       if(target=='pathways'){
         if(verbose)print('Step4: PredictPathways')
-        test=mclapply(1:length(testDataList),function(i6) baseModel(trainData =trainDataList[[i6]],testData =testDataList[[i6]],predMode = predMode,classifier = classifier,paramlist=paramlist),mc.cores=cores)
+        test=mclapply(1:length(testDataList),function(i6) baseModel(trainData =trainDataList[[i6]],testData =testDataList[[i6]],predMode = predMode,
+                                                                    classifier = classifier,paramlist=paramlist,seed=seed ),mc.cores=cores)
         corr=sapply(1:length(testDataList),function(x) stats::cor(test[[x]],testDataList[[x]]$label,method='pearson'))
         newtest=do.call(cbind, test)
         colnames(newtest)=names(testDataList)
@@ -751,12 +770,12 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
         if(verbose)print('Step4: Reconstruction')
         if(Inner_CV==TRUE){
           if(verbose)print('     |> Using Inner CV ~ ~ ~')
-          train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =NULL,predMode =predMode,classifier = classifier,inner_folds=inner_folds,paramlist=paramlist),mc.cores=cores)
-          test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode =predMode,classifier = classifier,paramlist=paramlist),mc.cores=cores)
+          train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =NULL,predMode =predMode,classifier = classifier,inner_folds=inner_folds,paramlist=paramlist,seed=seed),mc.cores=cores)
+          test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode =predMode,classifier = classifier,paramlist=paramlist,seed=seed),mc.cores=cores)
         }else{
 
-          train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =trainDataList[[i4]],predMode = predMode ,classifier = classifier,paramlist=paramlist),mc.cores=cores)
-          test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode = predMode ,classifier = classifier,paramlist=paramlist),mc.cores=cores)
+          train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =trainDataList[[i4]],predMode = predMode ,classifier = classifier,paramlist=paramlist,seed=seed),mc.cores=cores)
+          test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode = predMode ,classifier = classifier,paramlist=paramlist,seed=seed),mc.cores=cores)
 
 
         }
@@ -903,11 +922,11 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
       if(verbose)print('Step4: PredictPathways')
       if(Inner_CV ==TRUE){
         if(verbose)print('     |> Using Inner CV ~ ~ ~')
-        train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =NULL,predMode =predMode,classifier = classifier,inner_folds=inner_folds,paramlist=paramlist),mc.cores=cores)
-        test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode =predMode,classifier = classifier,paramlist=paramlist),mc.cores=cores)
+        train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =NULL,predMode =predMode,classifier = classifier,inner_folds=inner_folds,paramlist=paramlist,seed=seed),mc.cores=cores)
+        test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode =predMode,classifier = classifier,paramlist=paramlist,seed=seed),mc.cores=cores)
       }else{
-        train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =trainDataList[[i4]],predMode = predMode ,classifier = classifier,paramlist=paramlist),mc.cores=cores)
-        test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode = predMode ,classifier = classifier,paramlist=paramlist),mc.cores=cores)
+        train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =trainDataList[[i4]],predMode = predMode ,classifier = classifier,paramlist=paramlist,seed=seed),mc.cores=cores)
+        test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode = predMode ,classifier = classifier,paramlist=paramlist,seed=seed),mc.cores=cores)
       }
       if(verbose)print('Step5: FeartureSelection-pathways')
       index=Stage2_FeartureSelection(Stage2_FeartureSelection_Method=Stage2_FeartureSelection_Method,data=train,
@@ -951,11 +970,11 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
       if(verbose)print('Step4: Reconstruction')
       if(Inner_CV ==TRUE){
         if(verbose)print('     |> Using Inner CV ~ ~ ~')
-        train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =NULL,predMode =predMode,classifier = classifier,inner_folds=inner_folds,paramlist=paramlist),mc.cores=cores)
-        test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode =predMode,classifier = classifier,paramlist=paramlist),mc.cores=cores)
+        train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =NULL,predMode =predMode,classifier = classifier,inner_folds=inner_folds,paramlist=paramlist,seed=seed),mc.cores=cores)
+        test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode =predMode,classifier = classifier,paramlist=paramlist,seed=seed),mc.cores=cores)
       }else{
-        train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =trainDataList[[i4]],predMode = predMode ,classifier = classifier,paramlist=paramlist),mc.cores=cores)
-        test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode = predMode ,classifier = classifier,paramlist=paramlist),mc.cores=cores)
+        train=mclapply(1:length(trainDataList),function(i4) baseModel(trainData =trainDataList[[i4]],testData =trainDataList[[i4]],predMode = predMode ,classifier = classifier,paramlist=paramlist,seed=seed),mc.cores=cores)
+        test=mclapply(1:length(testDataList),function(i5) baseModel(trainData =trainDataList[[i5]],testData =testDataList[[i5]],predMode = predMode ,classifier = classifier,paramlist=paramlist,seed=seed),mc.cores=cores)
       }
       if(verbose)print('     <<< Reconstruction Done! >>>     ')
 
@@ -972,8 +991,6 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
       newtest=do.call(cbind,test[index])
       colnames(newtest)=names(trainDataList)[index]
       newtest=cbind(label=testDataList[[1]]$label,newtest)
-      colnames(newtest)=gsub(':','',colnames(newtest))
-      colnames(newtrain)=gsub(':','',colnames(newtrain))
       if(Add_UnMapped==TRUE){
         if(Unmapped_num==0){
           if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
@@ -985,7 +1002,12 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
           if(verbose)print(paste0('     |> Merge PathwayFeature and AddFeature ==>>',ncol(newtrain)))
         }
       }
-
+      rownames(newtrain)=rownames(trainData)
+      rownames(newtest)=rownames(testData)
+      st2_train=newtrain
+      st2_test=newtest
+      colnames(newtest)=gsub(':','',colnames(newtest))
+      colnames(newtrain)=gsub(':','',colnames(newtrain))
       #(Predict and Metric)
       if(verbose)print('Step6: Predict and Metric')
       if(is.null(classifier2)){
@@ -1002,7 +1024,7 @@ BioM2=function(TrainData=NULL,TestData=NULL,pathlistDB=NULL,FeatureAnno=NULL,res
       accuracy_class0 <- sum(pre[testDataY == 0] == 0) / sum(testDataY == 0)
       Record[1,3]=(accuracy_class1 + accuracy_class0) / 2
       if(verbose)print(paste0('######~~~~',ifelse(is.character(classifier),classifier,classifier$id),'==>','AUC:',round(Record[1,2],digits = 3),' ','BAC:',round(Record[1,3],digits = 3),' ','PCCs:',round(Record[1,4],digits = 3)))
-      final=list('Prediction'=predict,'Metric'=Record)
+      final=list('Stage2_train'=st2_train,'Stage2_test'=st2_test,'Prediction'=predict,'Metric'=Record)
       T2=Sys.time()
       if(verbose)print(T2-T1)
       if(verbose)print('######-------  Well Done!!!-------######')
@@ -1625,7 +1647,6 @@ ShowModule=function(obj=NULL,ID_Module=NULL,exact=TRUE,ancestor_anno=NULL){
 #' @export
 #' @import ggplot2
 #' @import htmlwidgets
-#' @import jiebaR
 #' @import ggsci
 #' @import CMplot
 #' @import uwot

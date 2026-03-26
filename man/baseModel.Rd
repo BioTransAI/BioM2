@@ -10,7 +10,8 @@ baseModel(
   predMode = "probability",
   classifier,
   paramlist = NULL,
-  inner_folds = 10
+  inner_folds = 10,
+  seed = 10
 )
 }
 \arguments{
@@ -29,6 +30,8 @@ is the label or the output. For binary classes,
 \item{paramlist}{Learner parameters search spaces}
 
 \item{inner_folds}{k-fold cross validation ( Only supported when testData = NULL )}
+
+\item{seed}{Cross-Validation seed}
 }
 \value{
 The predicted output for the test data.
